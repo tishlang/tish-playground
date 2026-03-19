@@ -1,26 +1,23 @@
-// Playground shell: composes swappable panels and wires Run → compile API → VM WASM.
+// Playground shell: Tishact createRoot + ShellApp (JSX).
 
-import { renderEditor } from "./panels/editor.tish"
-import { renderTerminal } from "./panels/terminal.tish"
-import { renderFileBrowser } from "./panels/file_browser.tish"
-import { renderWebPreview } from "./panels/web_preview.tish"
+import { createRoot, h, Fragment, useState, useRef, useLayoutEffect } from "./tishact/Tishact.tish"
+import { EditorPanel } from "./panels/EditorPanel.tish"
+import { TerminalPanel } from "./panels/TerminalPanel.tish"
+import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
+import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
 
 const STORAGE_KEY = "tish-playground-files"
 
 fn findEntry(entries, path) {
   for (let e of entries) {
-    if (e.path === path) {
-      return e
-    }
+    if (e.path === path) return e
   }
   return null
 }
 
 fn loadFilesFromStorage(fileEntries) {
   const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) {
-    return
-  }
+  if (!raw) { return }
   const obj = JSON.parse(raw)
   for (let e of fileEntries) {
     if (obj[e.path] !== undefined && obj[e.path] !== null) {
@@ -37,104 +34,102 @@ fn saveFilesToStorage(fileEntries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj))
 }
 
-export fn mountShell(root) {
-  root.className = "pg-root"
+fn ShellApp() {
+  const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
+  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Run this and see output in the Web preview panel below.\nif (typeof document !== \"undefined\") {\n  document.body.style.margin = \"0\"\n  document.body.style.fontFamily = \"sans-serif\"\n  document.body.style.padding = \"1rem\"\n  document.body.style.background = \"#1a1d23\"\n  document.body.style.color = \"#e6e9ed\"\n  const box = document.createElement(\"div\")\n  box.style.border = \"2px solid #3d8bfd\"\n  box.style.borderRadius = \"8px\"\n  box.style.padding = \"1.5rem\"\n  box.style.maxWidth = \"20rem\"\n  const h1 = document.createElement(\"h1\")\n  h1.textContent = \"Web preview works!\"\n  h1.style.margin = \"0 0 0.5rem 0\"\n  h1.style.fontSize = \"1.25rem\"\n  const p = document.createElement(\"p\")\n  p.textContent = \"This is rendered by Tish (compiled to JS, run in the iframe). Edit web.tish and Run to change this.\"\n  p.style.margin = \"0\"\n  p.style.fontSize = \"0.9rem\"\n  p.style.opacity = \"0.9\"\n  box.appendChild(h1)\n  box.appendChild(p)\n  document.body.appendChild(box)\n}\n" }
+  const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
+  let initialEntries = [mainEntry, webEntry, libEntry]
+  loadFilesFromStorage(initialEntries)
+  let fileEntriesRef = useRef(initialEntries)
 
-  const mainEntry = {
-    path: "main.tish",
-    text: "// main.tish\nconsole.log(\"Hello, playground\")\n"
-  }
-  const webEntry = {
-    path: "web.tish",
-    text: "// WEB EXAMPLE — Run this and see output in the Web preview panel below.\nif (typeof document !== \"undefined\") {\n  document.body.style.margin = \"0\"\n  document.body.style.fontFamily = \"sans-serif\"\n  document.body.style.padding = \"1rem\"\n  document.body.style.background = \"#1a1d23\"\n  document.body.style.color = \"#e6e9ed\"\n  const box = document.createElement(\"div\")\n  box.style.border = \"2px solid #3d8bfd\"\n  box.style.borderRadius = \"8px\"\n  box.style.padding = \"1.5rem\"\n  box.style.maxWidth = \"20rem\"\n  const h1 = document.createElement(\"h1\")\n  h1.textContent = \"Web preview works!\"\n  h1.style.margin = \"0 0 0.5rem 0\"\n  h1.style.fontSize = \"1.25rem\"\n  const p = document.createElement(\"p\")\n  p.textContent = \"This is rendered by Tish (compiled to JS, run in the iframe). Edit web.tish and Run to change this.\"\n  p.style.margin = \"0\"\n  p.style.fontSize = \"0.9rem\"\n  p.style.opacity = \"0.9\"\n  box.appendChild(h1)\n  box.appendChild(p)\n  document.body.appendChild(box)\n}\n"
-  }
-  const libEntry = {
-    path: "lib.tish",
-    text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n"
-  }
-  const fileEntries = [mainEntry, webEntry, libEntry]
-  loadFilesFromStorage(fileEntries)
+  let pathState = useState("main.tish")
+  let currentPath = pathState[0]
+  let setCurrentPath = pathState[1]
+  let paths = ["main.tish", "web.tish", "lib.tish"]
 
-  let currentPath = "main.tish"
-  const paths = ["main.tish", "web.tish", "lib.tish"]
+  let editorApiRef = useRef(null)
+  let terminalApiRef = useRef(null)
+  let previewApiRef = useRef(null)
 
-  const header = document.createElement("header")
-  header.className = "pg-header"
-  const title = document.createElement("h1")
-  title.className = "pg-title"
-  title.textContent = "Tish playground"
-  const runBtn = document.createElement("button")
-  runBtn.type = "button"
-  runBtn.className = "pg-run"
-  runBtn.textContent = "Run"
-  header.appendChild(title)
-  header.appendChild(runBtn)
-
-  const body = document.createElement("div")
-  body.className = "pg-body"
-
-  const left = document.createElement("div")
-  left.className = "pg-col pg-col--left"
-  const right = document.createElement("div")
-  right.className = "pg-col pg-col--right"
-
-  const fileHost = document.createElement("div")
-  fileHost.className = "pg-panel pg-panel--files"
-  const editorHost = document.createElement("div")
-  editorHost.className = "pg-panel pg-panel--editor"
-  const termHost = document.createElement("div")
-  termHost.className = "pg-panel"
-  const previewHost = document.createElement("div")
-  previewHost.className = "pg-panel"
-
-  left.appendChild(fileHost)
-  left.appendChild(editorHost)
-  right.appendChild(termHost)
-  right.appendChild(previewHost)
-
-  body.appendChild(left)
-  body.appendChild(right)
-
-  root.appendChild(header)
-  root.appendChild(body)
-
-  const editorApi = renderEditor(editorHost)
-  const terminalApi = renderTerminal(termHost)
-  const previewApi = renderWebPreview(previewHost)
-
-  editorApi.setContent(findEntry(fileEntries, currentPath).text)
+  useLayoutEffect(() => {
+    fn applyEditorSync() {
+      let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+      if (editor === null || editor === undefined) { return }
+      let cur = findEntry(fileEntriesRef.current, currentPath)
+      if (cur !== null) { editor.setContent(cur.text) }
+      fn saveCurrentFile() {
+        let cur = findEntry(fileEntriesRef.current, currentPath)
+        let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+        if (cur !== null && ed !== null) {
+          cur.text = ed.getContent()
+          saveFilesToStorage(fileEntriesRef.current)
+        }
+      }
+      editor.setOnBlur(saveCurrentFile)
+    }
+    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+    if (editor !== null && editor !== undefined) {
+      applyEditorSync()
+    } else {
+      queueMicrotask(applyEditorSync)
+    }
+  }, [currentPath])
 
   fn onSelect(path) {
-    const cur = findEntry(fileEntries, currentPath)
-    cur.text = editorApi.getContent()
-    saveFilesToStorage(fileEntries)
-    currentPath = path
-    editorApi.setContent(findEntry(fileEntries, currentPath).text)
+    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+    if (editor !== null && editor !== undefined) {
+      let cur = findEntry(fileEntriesRef.current, currentPath)
+      if (cur !== null) {
+        cur.text = editor.getContent()
+        saveFilesToStorage(fileEntriesRef.current)
+      }
+    }
+    setCurrentPath(path)
   }
-
-  renderFileBrowser(fileHost, paths, onSelect)
-
-  fn saveCurrentFile() {
-    const cur = findEntry(fileEntries, currentPath)
-    cur.text = editorApi.getContent()
-    saveFilesToStorage(fileEntries)
-  }
-
-  editorApi.setOnBlur(saveCurrentFile)
 
   fn handleRun() {
-    const cur = findEntry(fileEntries, currentPath)
-    cur.text = editorApi.getContent()
-    saveFilesToStorage(fileEntries)
-    const src = cur.text
-    terminalApi.clear()
-    previewApi.setText("")
-    runCompileAndExec(src, terminalApi, previewApi)
+    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+    let term = terminalApiRef !== null && terminalApiRef !== undefined ? terminalApiRef.current : null
+    let prev = previewApiRef !== null && previewApiRef !== undefined ? previewApiRef.current : null
+    if (editor === null || term === null || prev === null) { return }
+    let cur = findEntry(fileEntriesRef.current, currentPath)
+    if (cur === null) { return }
+    cur.text = editor.getContent()
+    saveFilesToStorage(fileEntriesRef.current)
+    term.clear()
+    prev.setText("")
+    runCompileAndExec(cur.text, term, prev)
   }
 
-  runBtn.onclick = handleRun
+  return <div class="pg-root">
+    <header class="pg-header">
+      <h1 class="pg-title">{"Tish playground"}</h1>
+      <button type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
+    </header>
+    <div class="pg-body">
+      <div class="pg-col pg-col--left">
+        <div class="pg-panel pg-panel--files">
+          {FileBrowserPanel(paths, currentPath, onSelect)}
+        </div>
+        <div class="pg-panel pg-panel--editor">
+          {EditorPanel(editorApiRef)}
+        </div>
+      </div>
+      <div class="pg-col pg-col--right">
+        <div class="pg-panel">
+          {TerminalPanel(terminalApiRef)}
+        </div>
+        <div class="pg-panel">
+          {WebPreviewPanel(previewApiRef)}
+        </div>
+      </div>
+    </div>
+  </div>
+}
 
-  return null
+export fn mountShell(root) {
+  root.className = "pg-root"
+  createRoot(root).render(ShellApp)
 }
 
 async fn runCompileAndExec(src, terminal, preview) {

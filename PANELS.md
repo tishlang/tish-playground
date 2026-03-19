@@ -1,32 +1,21 @@
-# Modular panels
+# Modular panels (Tishact + JSX)
 
-Each UI region is a **separate Tish module** under [`app/panels/`](app/panels/) with a **unique exported function name** (the JS merge emits one flat file; multiple `export fn render` would collide).
+All panels are **Tishact components** under [`app/panels/`](app/panels/). They use **JSX** only—no `document.createElement`, no `setAttribute`. The shell uses `createRoot` and composes these panels via `{EditorPanel(...)}`, etc.
 
-## Current exports
+## Current panels
 
 | Module | Export | Responsibility |
 |--------|--------|----------------|
-| [`editor.tish`](app/panels/editor.tish) | `renderEditor(parent)` | Returns `{ getContent, setContent }` |
-| [`terminal.tish`](app/panels/terminal.tish) | `renderTerminal(parent)` | Returns `{ appendLine, clear }` |
-| [`file_browser.tish`](app/panels/file_browser.tish) | `renderFileBrowser(parent, paths, onSelect)` | Renders virtual file buttons |
-| [`web_preview.tish`](app/panels/web_preview.tish) | `renderWebPreview(parent)` | Returns `{ setText }` for stdout mirror |
+| [`EditorPanel.tish`](app/panels/EditorPanel.tish) | `EditorPanel(apiRef)` | Textarea editor; fills `apiRef.current` with `{ getContent, setContent, setOnBlur }` |
+| [`TerminalPanel.tish`](app/panels/TerminalPanel.tish) | `TerminalPanel(apiRef)` | Console output; fills `apiRef.current` with `{ appendLine, clear }` |
+| [`FileBrowserPanel.tish`](app/panels/FileBrowserPanel.tish) | `FileBrowserPanel(paths, currentPath, onSelect)` | File list with selection |
+| [`WebPreviewPanel.tish`](app/panels/WebPreviewPanel.tish) | `WebPreviewPanel(apiRef)` | Iframe + fallback pre; fills `apiRef.current` with `{ setText, runJs }` |
 
 ## How to swap a panel
 
-1. Add a new file, e.g. `app/panels/editor_codemirror.tish`, exporting **`renderEditor`** (or pick a new name and update the shell import).
-2. In [`app/shell.tish`](app/shell.tish), change the import line:
-
-   ```tish
-   import { renderEditor } from "./panels/editor_codemirror.tish"
-   ```
-
+1. Add a new Tishact/JSX component, e.g. `app/panels/EditorPanelCodemirror.tish`, exporting a function that returns JSX and uses `useRef`/`useLayoutEffect` to expose the same API via the given `apiRef`.
+2. In [`app/shell.tish`](app/shell.tish), change the import and the JSX usage, e.g. `{EditorPanelCodemirror(editorApiRef)}`.
 3. Rebuild: `just build-app`.
-
-The shell does **not** import panel internals—only the stable entry function—so replacements stay isolated.
-
-## Web preview
-
-Today the preview duplicates terminal output (plain text). A future implementation could use an `<iframe>` `srcdoc` or sandboxed document for visual user output once the runtime exposes DOM or a dedicated preview channel.
 
 ## Single-file compile
 

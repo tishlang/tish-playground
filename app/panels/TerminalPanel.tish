@@ -1,0 +1,24 @@
+// Terminal / console panel (JSX).
+
+import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
+
+export fn TerminalPanel(apiRef) {
+  let outRef = useRef(null)
+  useLayoutEffect(() => {
+    if (apiRef === null || apiRef === undefined) { return }
+    if (outRef.current !== null && outRef.current !== undefined) {
+      apiRef.current = {
+        appendLine: (line) => {
+          let t = document.createTextNode(line + "\n")
+          outRef.current.appendChild(t)
+          outRef.current.scrollTop = outRef.current.scrollHeight
+        },
+        clear: () => { outRef.current.textContent = "" }
+      }
+    }
+  }, [])
+  return <div class="pg-terminal">
+    <div class="pg-terminal__label">{"Console"}</div>
+    <pre ref={outRef} class="pg-terminal__out" />
+  </div>
+}

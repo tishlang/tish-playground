@@ -1,0 +1,20 @@
+// File list panel (JSX).
+
+import { h, Fragment } from "../tishact/Tishact.tish"
+
+export fn FileBrowserPanel(paths, currentPath, onSelect) {
+  let items = []
+  let i = 0
+  while (i < paths.length) {
+    let path = paths[i]
+    let isSelected = path === currentPath
+    let cls = "pg-files__item"
+    if (isSelected) { cls = cls + " pg-files__item--selected" }
+    items.push(<button type="button" class={cls} onclick={() => onSelect(path)}>{path}</button>)
+    i = i + 1
+  }
+  return <nav class="pg-files">
+    <div class="pg-files__title">{"Files"}</div>
+    {items}
+  </nav>
+}

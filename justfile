@@ -11,7 +11,7 @@ default:
 # Clear CARGO_TARGET_DIR so the Tish workspace uses its own ./target (not this repo's).
 build-app:
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ TISH_ROOT }}" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx legacy
+    cd "{{ TISH_ROOT }}" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx tishact
 
 # Build browser VM WASM + wasm-bindgen glue into public/dist/.
 build-vm:

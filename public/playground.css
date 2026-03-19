@@ -126,6 +126,11 @@ body {
   background: rgba(61, 139, 253, 0.12);
 }
 
+.pg-files__item--selected {
+  background: rgba(61, 139, 253, 0.2);
+  font-weight: 600;
+}
+
 .pg-editor__textarea {
   flex: 1;
   width: 100%;
