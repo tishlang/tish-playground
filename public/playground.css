@@ -171,12 +171,20 @@ body {
   word-break: break-word;
 }
 
+.pg-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
 .pg-preview__label {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
   margin-bottom: 0.35rem;
+  flex-shrink: 0;
 }
 
 .pg-preview__body,
@@ -201,5 +209,9 @@ body {
 .pg-preview__iframe {
   display: none;
   width: 100%;
-  min-height: 8rem;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }

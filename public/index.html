@@ -16,7 +16,7 @@
       return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     };
 
-    import init, { run } from "./tish_vm.js";
+    import init, { run } from "./dist/tish_vm.js";
     await init();
 
     window.__tishVmRunCaptured = function (chunk) {
@@ -36,7 +36,7 @@
       return lines;
     };
 
-    await import("./playground.js");
+    await import("./dist/playground.js");
   </script>
 </body>
 </html>
