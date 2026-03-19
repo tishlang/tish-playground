@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tish playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/playground.css" />
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    window.__tishDecodeB64 = function (b64) {
+      return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    };
+
+    import init, { run } from "./tish_vm.js";
+    await init();
+
+    window.__tishVmRunCaptured = function (chunk) {
+      const lines = [];
+      const orig = console.log;
+      console.log = function (...args) {
+        lines.push(args.map(String).join(" "));
+        orig.apply(console, args);
+      };
+      try {
+        run(chunk);
+      } catch (e) {
+        lines.push("Runtime: " + String(e));
+      } finally {
+        console.log = orig;
+      }
+      return lines;
+    };
+
+    await import("./playground.js");
+  </script>
+</body>
+</html>

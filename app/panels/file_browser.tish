@@ -1,0 +1,21 @@
+// Virtual in-memory file tree; swap this module for a backend-backed browser later.
+
+export fn renderFileBrowser(parent, paths, onSelect) {
+  const nav = document.createElement("nav")
+  nav.className = "pg-files"
+  const title = document.createElement("div")
+  title.className = "pg-files__title"
+  title.textContent = "Files"
+  nav.appendChild(title)
+
+  for (let path of paths) {
+    const row = document.createElement("button")
+    row.type = "button"
+    row.className = "pg-files__item"
+    row.textContent = path
+    row.onclick = () => onSelect(path)
+    nav.appendChild(row)
+  }
+
+  parent.appendChild(nav)
+}

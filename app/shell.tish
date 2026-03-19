@@ -1,0 +1,182 @@
+// Playground shell: composes swappable panels and wires Run → compile API → VM WASM.
+
+import { renderEditor } from "./panels/editor.tish"
+import { renderTerminal } from "./panels/terminal.tish"
+import { renderFileBrowser } from "./panels/file_browser.tish"
+import { renderWebPreview } from "./panels/web_preview.tish"
+
+const STORAGE_KEY = "tish-playground-files"
+
+fn findEntry(entries, path) {
+  for (let e of entries) {
+    if (e.path === path) {
+      return e
+    }
+  }
+  return null
+}
+
+fn loadFilesFromStorage(fileEntries) {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) {
+    return
+  }
+  const obj = JSON.parse(raw)
+  for (let e of fileEntries) {
+    if (obj[e.path] !== undefined && obj[e.path] !== null) {
+      e.text = obj[e.path]
+    }
+  }
+}
+
+fn saveFilesToStorage(fileEntries) {
+  const obj = {}
+  for (let e of fileEntries) {
+    obj[e.path] = e.text
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj))
+}
+
+export fn mountShell(root) {
+  root.className = "pg-root"
+
+  const mainEntry = {
+    path: "main.tish",
+    text: "// main.tish\nconsole.log(\"Hello, playground\")\n"
+  }
+  const webEntry = {
+    path: "web.tish",
+    text: "// WEB EXAMPLE — Run this and see output in the Web preview panel below.\nif (typeof document !== \"undefined\") {\n  document.body.style.margin = \"0\"\n  document.body.style.fontFamily = \"sans-serif\"\n  document.body.style.padding = \"1rem\"\n  document.body.style.background = \"#1a1d23\"\n  document.body.style.color = \"#e6e9ed\"\n  const box = document.createElement(\"div\")\n  box.style.border = \"2px solid #3d8bfd\"\n  box.style.borderRadius = \"8px\"\n  box.style.padding = \"1.5rem\"\n  box.style.maxWidth = \"20rem\"\n  const h1 = document.createElement(\"h1\")\n  h1.textContent = \"Web preview works!\"\n  h1.style.margin = \"0 0 0.5rem 0\"\n  h1.style.fontSize = \"1.25rem\"\n  const p = document.createElement(\"p\")\n  p.textContent = \"This is rendered by Tish (compiled to JS, run in the iframe). Edit web.tish and Run to change this.\"\n  p.style.margin = \"0\"\n  p.style.fontSize = \"0.9rem\"\n  p.style.opacity = \"0.9\"\n  box.appendChild(h1)\n  box.appendChild(p)\n  document.body.appendChild(box)\n}\n"
+  }
+  const libEntry = {
+    path: "lib.tish",
+    text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n"
+  }
+  const fileEntries = [mainEntry, webEntry, libEntry]
+  loadFilesFromStorage(fileEntries)
+
+  let currentPath = "main.tish"
+  const paths = ["main.tish", "web.tish", "lib.tish"]
+
+  const header = document.createElement("header")
+  header.className = "pg-header"
+  const title = document.createElement("h1")
+  title.className = "pg-title"
+  title.textContent = "Tish playground"
+  const runBtn = document.createElement("button")
+  runBtn.type = "button"
+  runBtn.className = "pg-run"
+  runBtn.textContent = "Run"
+  header.appendChild(title)
+  header.appendChild(runBtn)
+
+  const body = document.createElement("div")
+  body.className = "pg-body"
+
+  const left = document.createElement("div")
+  left.className = "pg-col pg-col--left"
+  const right = document.createElement("div")
+  right.className = "pg-col pg-col--right"
+
+  const fileHost = document.createElement("div")
+  fileHost.className = "pg-panel pg-panel--files"
+  const editorHost = document.createElement("div")
+  editorHost.className = "pg-panel pg-panel--editor"
+  const termHost = document.createElement("div")
+  termHost.className = "pg-panel"
+  const previewHost = document.createElement("div")
+  previewHost.className = "pg-panel"
+
+  left.appendChild(fileHost)
+  left.appendChild(editorHost)
+  right.appendChild(termHost)
+  right.appendChild(previewHost)
+
+  body.appendChild(left)
+  body.appendChild(right)
+
+  root.appendChild(header)
+  root.appendChild(body)
+
+  const editorApi = renderEditor(editorHost)
+  const terminalApi = renderTerminal(termHost)
+  const previewApi = renderWebPreview(previewHost)
+
+  editorApi.setContent(findEntry(fileEntries, currentPath).text)
+
+  fn onSelect(path) {
+    const cur = findEntry(fileEntries, currentPath)
+    cur.text = editorApi.getContent()
+    saveFilesToStorage(fileEntries)
+    currentPath = path
+    editorApi.setContent(findEntry(fileEntries, currentPath).text)
+  }
+
+  renderFileBrowser(fileHost, paths, onSelect)
+
+  fn saveCurrentFile() {
+    const cur = findEntry(fileEntries, currentPath)
+    cur.text = editorApi.getContent()
+    saveFilesToStorage(fileEntries)
+  }
+
+  editorApi.setOnBlur(saveCurrentFile)
+
+  fn handleRun() {
+    const cur = findEntry(fileEntries, currentPath)
+    cur.text = editorApi.getContent()
+    saveFilesToStorage(fileEntries)
+    const src = cur.text
+    terminalApi.clear()
+    previewApi.setText("")
+    runCompileAndExec(src, terminalApi, previewApi)
+  }
+
+  runBtn.onclick = handleRun
+
+  return null
+}
+
+async fn runCompileAndExec(src, terminal, preview) {
+  try {
+    const fetchOpts = {}
+    fetchOpts.method = "POST"
+    fetchOpts.headers = JSON.parse("{\"Content-Type\":\"application/json\"}")
+    const bodyObj = {}
+    bodyObj.source = src
+    fetchOpts.body = JSON.stringify(bodyObj)
+    const res = await fetch("/api/compile", fetchOpts)
+    const data = await res.json()
+    if (!res.ok) {
+      const msg = data.error ? data.error : "HTTP " + res.status + " from /api/compile"
+      terminal.appendLine("Compile error:")
+      terminal.appendLine(msg)
+      preview.setText(msg)
+      return
+    }
+    if (!data.bytecode) {
+      const msg = data.error ? data.error : "No bytecode returned"
+      terminal.appendLine("Compile error:")
+      terminal.appendLine(msg)
+      preview.setText(msg)
+      return
+    }
+    const bytes = window.__tishDecodeB64(data.bytecode)
+    const lines = window.__tishVmRunCaptured(bytes)
+    let i = 0
+    while (i < lines.length) {
+      terminal.appendLine(lines[i])
+      i = i + 1
+    }
+    const jsRes = await fetch("/api/compile-js", fetchOpts)
+    const jsData = await jsRes.json()
+    if (jsRes.ok && jsData.js) {
+      preview.runJs(jsData.js)
+    } else {
+      preview.setText(lines.join("\n"))
+    }
+  } catch (e) {
+    terminal.appendLine("Error: " + e)
+    preview.setText("Error: " + e)
+  }
+}

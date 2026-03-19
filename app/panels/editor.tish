@@ -1,0 +1,23 @@
+// Swappable code editor panel (textarea implementation).
+
+export fn renderEditor(parent) {
+  const ta = document.createElement("textarea")
+  ta.className = "pg-editor__textarea"
+  ta.setAttribute("spellcheck", "false")
+  ta.setAttribute("rows", "24")
+  parent.appendChild(ta)
+
+  fn getContent() {
+    return ta.value
+  }
+
+  fn setContent(text) {
+    ta.value = text
+  }
+
+  fn setOnBlur(callback) {
+    ta.onblur = callback
+  }
+
+  return { getContent: getContent, setContent: setContent, setOnBlur: setOnBlur }
+}

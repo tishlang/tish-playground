@@ -1,0 +1,4 @@
+import { mountShell } from "./shell.tish"
+
+const root = document.getElementById("app")
+mountShell(root)

@@ -1,0 +1,35 @@
+// Web preview: runs compiled JS in an iframe for DOM/canvas output.
+
+export fn renderWebPreview(parent) {
+  const wrap = document.createElement("div")
+  wrap.className = "pg-preview"
+  const label = document.createElement("div")
+  label.className = "pg-preview__label"
+  label.textContent = "Web preview"
+  const pre = document.createElement("pre")
+  pre.className = "pg-preview__body pg-preview__fallback"
+  const iframe = document.createElement("iframe")
+  iframe.className = "pg-preview__iframe"
+  iframe.setAttribute("sandbox", "allow-scripts")
+  wrap.appendChild(label)
+  wrap.appendChild(pre)
+  wrap.appendChild(iframe)
+  parent.appendChild(wrap)
+
+  fn setText(text) {
+    iframe.style.display = "none"
+    pre.style.display = "block"
+    pre.textContent = text
+  }
+
+  fn runJs(js) {
+    pre.style.display = "none"
+    pre.textContent = ""
+    iframe.style.display = "block"
+    const safe = js.split("</script>").join("<\\/script>")
+    const html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>" + safe + "</script></body></html>"
+    iframe.srcdoc = html
+  }
+
+  return { setText: setText, runJs: runJs }
+}

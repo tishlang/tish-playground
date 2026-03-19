@@ -1,0 +1,26 @@
+// Swappable terminal / console log panel.
+
+export fn renderTerminal(parent) {
+  const wrap = document.createElement("div")
+  wrap.className = "pg-terminal"
+  const label = document.createElement("div")
+  label.className = "pg-terminal__label"
+  label.textContent = "Console"
+  const out = document.createElement("pre")
+  out.className = "pg-terminal__out"
+  wrap.appendChild(label)
+  wrap.appendChild(out)
+  parent.appendChild(wrap)
+
+  fn appendLine(line) {
+    const t = document.createTextNode(line + "\n")
+    out.appendChild(t)
+    out.scrollTop = out.scrollHeight
+  }
+
+  fn clear() {
+    out.textContent = ""
+  }
+
+  return { appendLine: appendLine, clear: clear }
+}

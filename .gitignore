@@ -1,0 +1,4 @@
+target/
+public/playground.js
+public/tish_vm.js
+public/tish_vm_bg.wasm
