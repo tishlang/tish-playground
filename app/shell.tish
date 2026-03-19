@@ -36,7 +36,7 @@ fn saveFilesToStorage(fileEntries) {
 
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
-  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Run this and see output in the Web preview panel below.\nif (typeof document !== \"undefined\") {\n  document.body.style.margin = \"0\"\n  document.body.style.fontFamily = \"sans-serif\"\n  document.body.style.padding = \"1rem\"\n  document.body.style.background = \"#1a1d23\"\n  document.body.style.color = \"#e6e9ed\"\n  const box = document.createElement(\"div\")\n  box.style.border = \"2px solid #3d8bfd\"\n  box.style.borderRadius = \"8px\"\n  box.style.padding = \"1.5rem\"\n  box.style.maxWidth = \"20rem\"\n  const h1 = document.createElement(\"h1\")\n  h1.textContent = \"Web preview works!\"\n  h1.style.margin = \"0 0 0.5rem 0\"\n  h1.style.fontSize = \"1.25rem\"\n  const p = document.createElement(\"p\")\n  p.textContent = \"This is rendered by Tish (compiled to JS, run in the iframe). Edit web.tish and Run to change this.\"\n  p.style.margin = \"0\"\n  p.style.fontSize = \"0.9rem\"\n  p.style.opacity = \"0.9\"\n  box.appendChild(h1)\n  box.appendChild(p)\n  document.body.appendChild(box)\n}\n" }
+  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Tishact. Run to see output in the Web preview.\n// Body styles come from /web-preview.css in the iframe.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Tishact. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
   const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
   let initialEntries = [mainEntry, webEntry, libEntry]
   loadFilesFromStorage(initialEntries)
@@ -50,6 +50,9 @@ fn ShellApp() {
   let editorApiRef = useRef(null)
   let terminalApiRef = useRef(null)
   let previewApiRef = useRef(null)
+  let runButtonRef = useRef(null)
+  let curEntry = findEntry(fileEntriesRef.current, currentPath)
+  let currentContent = curEntry !== null ? curEntry.text : ""
 
   useLayoutEffect(() => {
     fn applyEditorSync() {
@@ -91,20 +94,22 @@ fn ShellApp() {
     let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
     let term = terminalApiRef !== null && terminalApiRef !== undefined ? terminalApiRef.current : null
     let prev = previewApiRef !== null && previewApiRef !== undefined ? previewApiRef.current : null
-    if (editor === null || term === null || prev === null) { return }
+    let btn = runButtonRef !== null && runButtonRef !== undefined ? runButtonRef.current : null
+    if (editor === null || term === null || prev === null || btn === null) { return }
+    if (btn.disabled) { return }
     let cur = findEntry(fileEntriesRef.current, currentPath)
     if (cur === null) { return }
     cur.text = editor.getContent()
     saveFilesToStorage(fileEntriesRef.current)
-    term.clear()
-    prev.setText("")
-    runCompileAndExec(cur.text, term, prev)
+    btn.disabled = true
+    btn.textContent = "Running…"
+    runCompileAndExec(cur.text, currentPath, term, prev, runButtonRef)
   }
 
   return <div class="pg-root">
     <header class="pg-header">
       <h1 class="pg-title">{"Tish playground"}</h1>
-      <button type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
+      <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
     </header>
     <div class="pg-body">
       <div class="pg-col pg-col--left">
@@ -112,7 +117,7 @@ fn ShellApp() {
           {FileBrowserPanel(paths, currentPath, onSelect)}
         </div>
         <div class="pg-panel pg-panel--editor">
-          {EditorPanel(editorApiRef)}
+          {EditorPanel(editorApiRef, currentContent)}
         </div>
       </div>
       <div class="pg-col pg-col--right">
@@ -132,46 +137,52 @@ export fn mountShell(root) {
   createRoot(root).render(ShellApp)
 }
 
-async fn runCompileAndExec(src, terminal, preview) {
+async fn runCompileAndExec(src, path, terminal, preview, onDone) {
   try {
+    terminal.clear()
+    preview.setText("")
     const fetchOpts = {}
     fetchOpts.method = "POST"
     fetchOpts.headers = JSON.parse("{\"Content-Type\":\"application/json\"}")
     const bodyObj = {}
     bodyObj.source = src
     fetchOpts.body = JSON.stringify(bodyObj)
-    const res = await fetch("/api/compile", fetchOpts)
-    const data = await res.json()
-    if (!res.ok) {
-      const msg = data.error ? data.error : "HTTP " + res.status + " from /api/compile"
-      terminal.appendLine("Compile error:")
-      terminal.appendLine(msg)
-      preview.setText(msg)
-      return
-    }
-    if (!data.bytecode) {
-      const msg = data.error ? data.error : "No bytecode returned"
-      terminal.appendLine("Compile error:")
-      terminal.appendLine(msg)
-      preview.setText(msg)
-      return
-    }
-    const bytes = window.__tishDecodeB64(data.bytecode)
-    const lines = window.__tishVmRunCaptured(bytes)
-    let i = 0
-    while (i < lines.length) {
-      terminal.appendLine(lines[i])
-      i = i + 1
+    let lines = []
+    let isWeb = path === "web.tish"
+    if (!isWeb) {
+      const res = await fetch("/api/compile", fetchOpts)
+      const data = await res.json()
+      if (res.ok && data.bytecode) {
+        const bytes = window.__tishDecodeB64(data.bytecode)
+        lines = window.__tishVmRunCaptured(bytes)
+        let i = 0
+        while (i < lines.length) {
+          terminal.appendLine(lines[i])
+          i = i + 1
+        }
+      } else {
+        const msg = data.error ? data.error : (!res.ok ? "HTTP " + res.status + " from /api/compile" : "No bytecode returned")
+        terminal.appendLine("Bytecode compile error:")
+        terminal.appendLine(msg)
+      }
     }
     const jsRes = await fetch("/api/compile-js", fetchOpts)
     const jsData = await jsRes.json()
     if (jsRes.ok && jsData.js) {
       preview.runJs(jsData.js)
     } else {
-      preview.setText(lines.join("\n"))
+      const jsErr = jsData.error ? jsData.error : "JS compile failed"
+      terminal.appendLine("JS compile error: " + jsErr)
+      preview.setText(jsErr)
     }
   } catch (e) {
     terminal.appendLine("Error: " + e)
     preview.setText("Error: " + e)
+  } finally {
+    let btn = onDone !== null && onDone !== undefined ? onDone.current : null
+    if (btn !== null) {
+      btn.disabled = false
+      btn.textContent = "Run"
+    }
   }
 }

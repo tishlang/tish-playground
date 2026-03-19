@@ -1,0 +1,27 @@
+/* Base styles for web preview iframe (user's Tishact app runs here). */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  padding: 1rem;
+  background: #1a1d23;
+  color: #e6e9ed;
+}
+
+/* Example app box (default web.tish uses class="box") */
+.box {
+  border: 2px solid #3d8bfd;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 20rem;
+}
+
+.box h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.box p {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}

@@ -45,6 +45,9 @@ export fn h(tag, props, children) {
       if (k === "ref") {
         refVal = v
       } else {
+        if (k === "disabled") {
+          el.disabled = !!v
+        } else {
         if (v === true) {
           el.setAttribute(k, k)
         } else {
@@ -66,6 +69,7 @@ export fn h(tag, props, children) {
               }
             }
           }
+        }
         }
       }
       ki = ki + 1

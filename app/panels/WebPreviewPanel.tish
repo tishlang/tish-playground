@@ -19,7 +19,9 @@ export fn WebPreviewPanel(apiRef) {
           preRef.current.textContent = ""
           iframeRef.current.style.display = "block"
           let safe = js.split("</script>").join("<\\/script>")
-          let html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body><script>" + safe + "</script></body></html>"
+          let base = typeof location !== "undefined" && location.origin ? location.origin : ""
+          let cssHref = base + "/web-preview.css"
+          let html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"" + cssHref + "\"></head><body><script>" + safe + "</script></body></html>"
           iframeRef.current.srcdoc = html
         }
       }
@@ -28,6 +30,6 @@ export fn WebPreviewPanel(apiRef) {
   return <div class="pg-preview">
     <div class="pg-preview__label">{"Web preview"}</div>
     <pre ref={preRef} class="pg-preview__body pg-preview__fallback" />
-    <iframe ref={iframeRef} class="pg-preview__iframe" sandbox="allow-scripts" />
+    <iframe ref={iframeRef} class="pg-preview__iframe" sandbox="allow-scripts allow-same-origin" />
   </div>
 }

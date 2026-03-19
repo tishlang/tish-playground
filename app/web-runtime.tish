@@ -1,0 +1,3 @@
+// Web preview iframe: Tishact runtime only (no app). Compiled to tishact-runtime.js
+// and prepended to user JS so h, createRoot, useState, etc. are in scope.
+import { h, createRoot, useState, useRef, useLayoutEffect, useEffect, Fragment } from "./tishact/Tishact.tish"

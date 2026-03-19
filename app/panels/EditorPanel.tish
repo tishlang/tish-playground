@@ -2,18 +2,22 @@
 
 import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
 
-export fn EditorPanel(apiRef) {
+export fn EditorPanel(apiRef, initialContent) {
   let taRef = useRef(null)
   useLayoutEffect(() => {
-    if (apiRef === null || apiRef === undefined) { return }
     if (taRef.current !== null && taRef.current !== undefined) {
-      apiRef.current = {
-        getContent: () => taRef.current.value,
-        setContent: (t) => { taRef.current.value = t },
-        setOnBlur: (callback) => { taRef.current.onblur = callback }
+      if (initialContent !== undefined && initialContent !== null) {
+        taRef.current.value = initialContent
+      }
+      if (apiRef !== null && apiRef !== undefined) {
+        apiRef.current = {
+          getContent: () => taRef.current.value,
+          setContent: (t) => { taRef.current.value = t },
+          setOnBlur: (callback) => { taRef.current.onblur = callback }
+        }
       }
     }
-  }, [])
+  }, [initialContent])
   return <div class="pg-panel pg-panel--editor">
     <textarea ref={taRef} class="pg-editor__textarea" spellcheck="false" rows="24" />
   </div>

@@ -7,9 +7,14 @@ TISH_ROOT := env_var_or_default("TISH_ROOT", justfile_directory() + "/../tish")
 default:
     @just --list
 
+# Tishact runtime for web preview iframe (prepended to user-compiled JS).
+build-runtime:
+    mkdir -p "{{ justfile_directory() }}/public/dist"
+    cd "{{ TISH_ROOT }}" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/tishact-runtime.js" --target js --jsx tishact
+
 # Compile playground UI (Tish → JS, legacy DOM). Output to public/dist/.
-# Clear CARGO_TARGET_DIR so the Tish workspace uses its own ./target (not this repo's).
-build-app:
+# Depends on build-runtime so web preview has Tishact in the iframe.
+build-app: build-runtime
     mkdir -p "{{ justfile_directory() }}/public/dist"
     cd "{{ TISH_ROOT }}" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx tishact
 
@@ -23,7 +28,7 @@ build-vm:
 build-server:
     cargo build -p tish-playground-server --release
 
-# App + VM + server.
+# App + VM + server. (build-app pulls in build-runtime for web preview.)
 build: build-app build-vm build-server
 
 # Build then serve static + /api/compile on http://127.0.0.1:8765 (or PORT=3000 just dev).
