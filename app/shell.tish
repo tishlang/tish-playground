@@ -43,10 +43,10 @@ fn ShellApp() {
   loadFilesFromStorage(initialEntries)
   let fileEntriesRef = useRef(initialEntries)
 
-  let pathState = useState("main.tish")
-  let currentPath = pathState[0]
-  let setCurrentPath = pathState[1]
+  let currentPathRef = useRef("main.tish")
+  let currentPath = currentPathRef.current
   let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+  let filesPanelRef = useRef(null)
 
   let editorApiRef = useRef(null)
   let terminalApiRef = useRef(null)
@@ -60,10 +60,10 @@ fn ShellApp() {
     fn applyEditorSync() {
       let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
       if (editor === null || editor === undefined) { return }
-      let cur = findEntry(fileEntriesRef.current, currentPath)
+      let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
       if (cur !== null) { editor.setContent(cur.text) }
       fn saveCurrentFile() {
-        let cur = findEntry(fileEntriesRef.current, currentPath)
+        let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
         let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
         if (cur !== null && ed !== null) {
           cur.text = ed.getContent()
@@ -78,18 +78,46 @@ fn ShellApp() {
     } else {
       queueMicrotask(applyEditorSync)
     }
-  }, [currentPath])
+  }, [])
 
   fn onSelect(path) {
     let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
     if (editor !== null && editor !== undefined) {
-      let cur = findEntry(fileEntriesRef.current, currentPath)
+      let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
       if (cur !== null) {
         cur.text = editor.getContent()
         saveFilesToStorage(fileEntriesRef.current)
       }
     }
-    setCurrentPath(path)
+    currentPathRef.current = path
+    let cur = findEntry(fileEntriesRef.current, path)
+    if (editor !== null && cur !== null) {
+      editor.setContent(cur.text)
+      fn saveCurrentFile() {
+        let c = findEntry(fileEntriesRef.current, currentPathRef.current)
+        let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
+        if (c !== null && ed !== null) {
+          c.text = ed.getContent()
+          saveFilesToStorage(fileEntriesRef.current)
+        }
+      }
+      editor.setOnBlur(saveCurrentFile)
+    }
+    let panel = filesPanelRef !== null && filesPanelRef !== undefined ? filesPanelRef.current : null
+    if (panel !== null) {
+      let btns = panel.querySelectorAll(".pg-files__item")
+      let j = 0
+      while (j < btns.length) {
+        let btn = btns[j]
+        let selected = btn.textContent === path
+        if (selected) {
+          btn.classList.add("pg-files__item--selected")
+        } else {
+          btn.classList.remove("pg-files__item--selected")
+        }
+        j = j + 1
+      }
+    }
   }
 
   fn handleRun() {
@@ -99,13 +127,13 @@ fn ShellApp() {
     let btn = runButtonRef !== null && runButtonRef !== undefined ? runButtonRef.current : null
     if (editor === null || term === null || prev === null || btn === null) { return }
     if (btn.disabled) { return }
-    let cur = findEntry(fileEntriesRef.current, currentPath)
+    let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
     if (cur === null) { return }
     cur.text = editor.getContent()
     saveFilesToStorage(fileEntriesRef.current)
-    let runPath = currentPath
+    let runPath = currentPathRef.current
     let runSrc = cur.text
-    if (currentPath === "web-preview.css") {
+    if (currentPathRef.current === "web-preview.css") {
       runPath = "web.tish"
       let webCur = findEntry(fileEntriesRef.current, "web.tish")
       runSrc = webCur !== null ? webCur.text : ""
@@ -122,7 +150,7 @@ fn ShellApp() {
     </header>
     <div class="pg-body">
       <div class="pg-col pg-col--left">
-        <div class="pg-panel pg-panel--files">
+        <div ref={filesPanelRef} class="pg-panel pg-panel--files">
           {FileBrowserPanel(paths, currentPath, onSelect)}
         </div>
         <div class="pg-panel pg-panel--editor">
