@@ -61,7 +61,7 @@ fn ShellApp() {
       let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
       if (editor === null || editor === undefined) { return }
       let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-      if (cur !== null) { editor.setContent(cur.text) }
+      if (cur !== null) { editor.setContent(cur.text, currentPathRef.current) }
       fn saveCurrentFile() {
         let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
         let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
@@ -92,7 +92,7 @@ fn ShellApp() {
     currentPathRef.current = path
     let cur = findEntry(fileEntriesRef.current, path)
     if (editor !== null && cur !== null) {
-      editor.setContent(cur.text)
+      editor.setContent(cur.text, path)
       fn saveCurrentFile() {
         let c = findEntry(fileEntriesRef.current, currentPathRef.current)
         let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
@@ -154,7 +154,7 @@ fn ShellApp() {
           {FileBrowserPanel(paths, currentPath, onSelect)}
         </div>
         <div class="pg-panel pg-panel--editor">
-          {EditorPanel(editorApiRef, currentContent)}
+          {EditorPanel(editorApiRef, currentContent, currentPath)}
         </div>
       </div>
       <div class="pg-col pg-col--right">

@@ -1,24 +1,73 @@
-// Editor panel (JSX).
+// Editor panel with syntax highlighting overlay. Modular, minimal, written in Tish.
 
 import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
+import { highlightToHtml } from "../highlight/TishHighlight.tish"
 
-export fn EditorPanel(apiRef, initialContent) {
+export fn EditorPanel(apiRef, initialContent, filePath) {
+  let wrapperRef = useRef(null)
   let taRef = useRef(null)
-  useLayoutEffect(() => {
-    if (taRef.current !== null && taRef.current !== undefined) {
-      if (initialContent !== undefined && initialContent !== null) {
-        taRef.current.value = initialContent
+  let highlightRef = useRef(null)
+  let scheduledRef = useRef(null)
+  let pathRef = useRef(filePath !== undefined && filePath !== null ? filePath : "main.tish")
+
+  fn updateHighlight(text) {
+    let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
+    let path = pathRef !== null && pathRef !== undefined ? pathRef.current : "main.tish"
+    if (hi !== null && text !== undefined) {
+      hi.innerHTML = highlightToHtml(text, path)
+    }
+  }
+
+  fn scheduleHighlight() {
+    if (scheduledRef !== null && scheduledRef !== undefined && scheduledRef.current !== null) { return }
+    scheduledRef.current = true
+    queueMicrotask(() => {
+      scheduledRef.current = null
+      let ta = taRef !== null && taRef !== undefined ? taRef.current : null
+      if (ta !== null) {
+        updateHighlight(ta.value)
       }
+    })
+  }
+
+  fn syncScroll() {
+    let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
+    let ta = taRef !== null && taRef !== undefined ? taRef.current : null
+    if (hi !== null && ta !== null) {
+      hi.scrollTop = ta.scrollTop
+      hi.scrollLeft = ta.scrollLeft
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (filePath !== undefined && filePath !== null) { pathRef.current = filePath }
+    let ta = taRef !== null && taRef !== undefined ? taRef.current : null
+    let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
+    if (ta !== null && hi !== null) {
+      if (initialContent !== undefined && initialContent !== null) {
+        ta.value = initialContent
+        updateHighlight(initialContent)
+      }
+      ta.oninput = () => {
+        scheduleHighlight()
+      }
+      ta.onscroll = syncScroll
       if (apiRef !== null && apiRef !== undefined) {
         apiRef.current = {
-          getContent: () => taRef.current.value,
-          setContent: (t) => { taRef.current.value = t },
-          setOnBlur: (callback) => { taRef.current.onblur = callback }
+          getContent: () => ta.value,
+          setContent: (t, path) => {
+            ta.value = t !== undefined && t !== null ? t : ""
+            if (path !== undefined && path !== null) { pathRef.current = path }
+            updateHighlight(ta.value)
+          },
+          setOnBlur: (callback) => { ta.onblur = callback }
         }
       }
     }
-  }, [initialContent])
-  return <div class="pg-panel pg-panel--editor">
+  }, [initialContent, filePath])
+
+  return <div ref={wrapperRef} class="pg-editor">
+    <div class="pg-editor__highlight" ref={highlightRef} />
     <textarea ref={taRef} class="pg-editor__textarea" spellcheck="false" rows="24" />
   </div>
 }

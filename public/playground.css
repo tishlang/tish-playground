@@ -137,20 +137,65 @@ body {
   font-weight: 600;
 }
 
-.pg-editor__textarea {
+.pg-editor {
+  position: relative;
   flex: 1;
+  min-height: 12rem;
+  overflow: hidden;
+}
+
+.pg-editor__highlight {
+  position: absolute;
+  inset: 0;
+  padding: 0.6rem;
+  overflow: auto;
+  font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text);
+  pointer-events: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.pg-editor__textarea {
+  position: absolute;
+  inset: 0;
   width: 100%;
   min-height: 12rem;
-  resize: vertical;
+  resize: none;
   padding: 0.6rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #0b0d10;
-  color: var(--text);
-  font-family: inherit;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
   font-size: 0.85rem;
   line-height: 1.45;
 }
+
+.pg-editor__textarea::selection {
+  background: rgba(61, 139, 253, 0.35);
+}
+
+/* Syntax highlighting tokens (tish-vscode–aligned) */
+.hl-comment { color: var(--muted); font-style: italic; }
+.hl-string { color: #7ee787; }
+.hl-keyword { color: #ff7b72; }
+.hl-storage { color: #79c0ff; }
+.hl-literal { color: #79c0ff; }
+.hl-type { color: #d2a8ff; }
+.hl-number { color: #79c0ff; }
+.hl-operator { color: var(--muted); }
+.hl-ident { color: var(--text); }
+.hl-punctuation { color: var(--muted); }
+.hl-tag { color: #7ee787; }
+.hl-selector-id { color: #79c0ff; }
+.hl-selector-class { color: #d2a8ff; }
+.hl-color { color: #79c0ff; }
 
 .pg-terminal {
   flex: 1;
