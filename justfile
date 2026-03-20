@@ -34,6 +34,11 @@ build-compiler:
 build: build-app build-vm build-compiler
 
 # Build then serve static at http://127.0.0.1:8765 (or PORT=8765 just dev).
-# Dev server is written in Tish; run with: tish run dev-server.tish --features http,fs,process
+# Dev server is written in Tish; run with: tish run dev-server.tish --feature http,fs,process
 dev: build
-    cd "{{ justfile_directory() }}" && cargo run -p tish --manifest-path "{{ TISH_ROOT }}/Cargo.toml" --release --features http,fs,process -- run dev-server.tish
+    cd "{{ justfile_directory() }}" && cargo run -p tish --manifest-path "{{ TISH_ROOT }}/Cargo.toml" --release --features http,fs,process -- run dev-server.tish --feature http,fs,process
+
+# Serve with Python's built-in HTTP server (fallback if Tish dev server hangs).
+# Run `just build` first. Uses port 8765 or PORT env. Open http://127.0.0.1:8765/
+serve:
+    cd "{{ justfile_directory() }}/public" && python3 -m http.server "{{ env_var_or_default('PORT', '8765') }}"
