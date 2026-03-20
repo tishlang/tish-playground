@@ -3,5 +3,9 @@
   "buildCommand": "bash build.sh",
   "outputDirectory": "public",
   "installCommand": "npm install",
-  "framework": null
+  "framework": null,
+  "headers": [
+    { "source": "/dist/tish_vm_bg.wasm", "headers": [{ "key": "Content-Type", "value": "application/wasm" }] },
+    { "source": "/dist/tish_compiler_bg.wasm", "headers": [{ "key": "Content-Type", "value": "application/wasm" }] }
+  ]
 }

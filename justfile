@@ -30,13 +30,10 @@ build-compiler:
     cargo build -p tish-playground-compiler --target wasm32-unknown-unknown --release
     wasm-bindgen "{{ justfile_directory() }}/target/wasm32-unknown-unknown/release/tish_playground_compiler.wasm" --out-dir "{{ justfile_directory() }}/public/dist" --out-name tish_compiler --target web
 
-# Compile API server binary.
-build-server:
-    cargo build -p tish-playground-server --release
+# App + VM + compiler WASM. Compile runs 100% in browser.
+build: build-app build-vm build-compiler
 
-# App + VM + compiler WASM + server. Compile runs 100% in browser.
-build: build-app build-vm build-compiler build-server
-
-# Build then serve static at http://127.0.0.1:8765 (or PORT=3000 just dev).
+# Build then serve static at http://127.0.0.1:8765 (or PORT=8765 just dev).
+# Dev server is written in Tish; run with: tish run dev-server.tish --features http,fs,process
 dev: build
-    ./target/release/tish-playground-server
+    cd "{{ justfile_directory() }}" && cargo run -p tish --manifest-path "{{ TISH_ROOT }}/Cargo.toml" --release --features http,fs,process -- run dev-server.tish

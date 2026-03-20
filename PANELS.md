@@ -19,4 +19,4 @@ All panels are **Tishact components** under [`app/panels/`](app/panels/). They u
 
 ## Single-file compile
 
-`POST /api/compile` parses **one** source string. Top-level `import` / `export` is not supported for bytecode in this path, so each virtual file must be runnable on its own. Use **main.tish** for primary examples; other tabs are extra buffers until the server merges a project graph.
+Compile runs **100% in the browser** (compiler WASM). Top-level `import` / `export` is not supported, so each virtual file must be runnable on its own. Use **main.tish** for primary examples; other tabs are extra buffers.
