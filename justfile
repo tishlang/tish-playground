@@ -27,8 +27,8 @@ build-vm:
 # Build compiler WASM (parse + bytecode + JS, runs 100% in browser).
 build-compiler:
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cargo build -p tish-playground-compiler --target wasm32-unknown-unknown --release
-    wasm-bindgen "{{ justfile_directory() }}/target/wasm32-unknown-unknown/release/tish_playground_compiler.wasm" --out-dir "{{ justfile_directory() }}/public/dist" --out-name tish_compiler --target web
+    cd "{{ TISH_ROOT }}" && env -u CARGO_TARGET_DIR cargo build -p tish_compiler_wasm --target wasm32-unknown-unknown --release
+    wasm-bindgen "{{ TISH_ROOT }}/target/wasm32-unknown-unknown/release/tish_compiler_wasm.wasm" --out-dir "{{ justfile_directory() }}/public/dist" --out-name tish_compiler --target web
 
 # App + VM + compiler WASM. Compile runs 100% in browser.
 build: build-app build-vm build-compiler

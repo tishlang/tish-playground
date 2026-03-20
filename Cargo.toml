@@ -1,3 +1,0 @@
-[workspace]
-members = ["compiler-wasm"]
-resolver = "2"
