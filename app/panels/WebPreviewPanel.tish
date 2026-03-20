@@ -2,31 +2,52 @@
 
 import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
 
-export fn WebPreviewPanel(apiRef) {
+export fn WebPreviewPanel(apiRef, stateRef) {
   let preRef = useRef(null)
   let iframeRef = useRef(null)
+  let mountKeyRef = useRef(0)
+  mountKeyRef.current = mountKeyRef.current + 1
   useLayoutEffect(() => {
     if (apiRef === null || apiRef === undefined) { return }
-    if (preRef.current !== null && iframeRef.current !== null) {
-      apiRef.current = {
-        setText: (text) => {
-          iframeRef.current.style.display = "none"
-          preRef.current.style.display = "block"
-          preRef.current.textContent = text
-        },
-        runJs: (js) => {
-          preRef.current.style.display = "none"
-          preRef.current.textContent = ""
-          iframeRef.current.style.display = "block"
-          let safe = js.split("</script>").join("<\\/script>")
+    if (preRef.current === null || iframeRef.current === null) { return }
+    fn apply(st) {
+      if (st === null || st === undefined) { return }
+      if (st.err) {
+        iframeRef.current.style.display = "none"
+        preRef.current.style.display = "block"
+        preRef.current.textContent = st.txt !== undefined ? st.txt : ""
+      } else {
+        preRef.current.style.display = "none"
+        preRef.current.textContent = ""
+        iframeRef.current.style.display = "block"
+        let safe = st.js.split("</script>").join("<\\/script>")
+        let html = ""
+        if (st.css !== undefined && st.css !== null && st.css !== "") {
+          let cssEsc = st.css.split("</style>").join("<\\/style>")
+          html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>" + cssEsc + "</style></head><body><script>" + safe + "</script></body></html>"
+        } else {
           let base = typeof location !== "undefined" && location.origin ? location.origin : ""
           let cssHref = base + "/web-preview.css"
-          let html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"" + cssHref + "\"></head><body><script>" + safe + "</script></body></html>"
-          iframeRef.current.srcdoc = html
+          html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"" + cssHref + "\"></head><body><script>" + safe + "</script></body></html>"
         }
+        iframeRef.current.srcdoc = html
       }
     }
-  }, [])
+    apiRef.current = {
+      setText: (text) => {
+        let st = { err: true, txt: text !== undefined ? text : "" }
+        if (stateRef) { stateRef.current = st }
+        apply(st)
+      },
+      runJs: (js, cssContent) => {
+        let st = { err: false, js: js !== undefined ? js : "", css: cssContent !== undefined && cssContent !== null ? cssContent : "" }
+        if (stateRef) { stateRef.current = st }
+        apply(st)
+      }
+    }
+    let st = stateRef && stateRef.current ? stateRef.current : null
+    if (st) { apply(st) }
+  }, [mountKeyRef.current])
   return <div class="pg-preview">
     <div class="pg-preview__label">{"Web preview"}</div>
     <pre ref={preRef} class="pg-preview__body pg-preview__fallback" />

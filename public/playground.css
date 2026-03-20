@@ -199,7 +199,8 @@ body {
 }
 
 .pg-preview__body,
-.pg-preview__iframe {
+.pg-preview__iframe,
+.pg-preview__slot {
   flex: 1;
   min-height: 4rem;
   border: 1px solid var(--border);

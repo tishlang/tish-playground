@@ -36,20 +36,22 @@ fn saveFilesToStorage(fileEntries) {
 
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
-  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Tishact. Run to see output in the Web preview.\n// Body styles come from /web-preview.css in the iframe.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Tishact. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
+  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Tishact. Run to see output in the Web preview.\n// Styles come from web-preview.css (editable in the file list).\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Tishact. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
   const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
-  let initialEntries = [mainEntry, webEntry, libEntry]
+  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (user's Tishact app runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (default web.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
+  let initialEntries = [mainEntry, webEntry, libEntry, cssEntry]
   loadFilesFromStorage(initialEntries)
   let fileEntriesRef = useRef(initialEntries)
 
   let pathState = useState("main.tish")
   let currentPath = pathState[0]
   let setCurrentPath = pathState[1]
-  let paths = ["main.tish", "web.tish", "lib.tish"]
+  let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
 
   let editorApiRef = useRef(null)
   let terminalApiRef = useRef(null)
   let previewApiRef = useRef(null)
+  let previewStateRef = useRef(null)
   let runButtonRef = useRef(null)
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
   let currentContent = curEntry !== null ? curEntry.text : ""
@@ -101,9 +103,16 @@ fn ShellApp() {
     if (cur === null) { return }
     cur.text = editor.getContent()
     saveFilesToStorage(fileEntriesRef.current)
+    let runPath = currentPath
+    let runSrc = cur.text
+    if (currentPath === "web-preview.css") {
+      runPath = "web.tish"
+      let webCur = findEntry(fileEntriesRef.current, "web.tish")
+      runSrc = webCur !== null ? webCur.text : ""
+    }
     btn.disabled = true
     btn.textContent = "Running…"
-    runCompileAndExec(cur.text, currentPath, term, prev, runButtonRef)
+    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef)
   }
 
   return <div class="pg-root">
@@ -125,7 +134,7 @@ fn ShellApp() {
           {TerminalPanel(terminalApiRef)}
         </div>
         <div class="pg-panel">
-          {WebPreviewPanel(previewApiRef)}
+          {WebPreviewPanel(previewApiRef, previewStateRef)}
         </div>
       </div>
     </div>
@@ -137,10 +146,12 @@ export fn mountShell(root) {
   createRoot(root).render(ShellApp)
 }
 
-async fn runCompileAndExec(src, path, terminal, preview, onDone) {
+async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef) {
   try {
     terminal.clear()
     preview.setText("")
+    let cssEntry = fileEntriesRef !== null && fileEntriesRef !== undefined ? findEntry(fileEntriesRef.current, "web-preview.css") : null
+    let cssContent = cssEntry !== null ? cssEntry.text : ""
     const fetchOpts = {}
     fetchOpts.method = "POST"
     fetchOpts.headers = JSON.parse("{\"Content-Type\":\"application/json\"}")
@@ -169,7 +180,7 @@ async fn runCompileAndExec(src, path, terminal, preview, onDone) {
     const jsRes = await fetch("/api/compile-js", fetchOpts)
     const jsData = await jsRes.json()
     if (jsRes.ok && jsData.js) {
-      preview.runJs(jsData.js)
+      preview.runJs(jsData.js, cssContent)
     } else {
       const jsErr = jsData.error ? jsData.error : "JS compile failed"
       terminal.appendLine("JS compile error: " + jsErr)
