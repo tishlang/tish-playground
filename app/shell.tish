@@ -174,45 +174,46 @@ export fn mountShell(root) {
   createRoot(root).render(ShellApp)
 }
 
+let tishactRuntimeCache = null
+
+async fn getTishactRuntime() {
+  if (tishactRuntimeCache !== null) { return tishactRuntimeCache }
+  const res = await fetch("/dist/tishact-runtime.js")
+  tishactRuntimeCache = await res.text()
+  return tishactRuntimeCache
+}
+
 async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef) {
   try {
     terminal.clear()
     preview.setText("")
     let cssEntry = fileEntriesRef !== null && fileEntriesRef !== undefined ? findEntry(fileEntriesRef.current, "web-preview.css") : null
     let cssContent = cssEntry !== null ? cssEntry.text : ""
-    const fetchOpts = {}
-    fetchOpts.method = "POST"
-    fetchOpts.headers = JSON.parse("{\"Content-Type\":\"application/json\"}")
-    const bodyObj = {}
-    bodyObj.source = src
-    fetchOpts.body = JSON.stringify(bodyObj)
     let lines = []
     let isWeb = path === "web.tish"
     if (!isWeb) {
-      const res = await fetch("/api/compile", fetchOpts)
-      const data = await res.json()
-      if (res.ok && data.bytecode) {
-        const bytes = window.__tishDecodeB64(data.bytecode)
+      try {
+        let b64 = window.__tishCompileToBytecode(src)
+        const bytes = window.__tishDecodeB64(b64)
         lines = window.__tishVmRunCaptured(bytes)
         let i = 0
         while (i < lines.length) {
           terminal.appendLine(lines[i])
           i = i + 1
         }
-      } else {
-        const msg = data.error ? data.error : (!res.ok ? "HTTP " + res.status + " from /api/compile" : "No bytecode returned")
+      } catch (e) {
         terminal.appendLine("Bytecode compile error:")
-        terminal.appendLine(msg)
+        terminal.appendLine(String(e))
       }
     }
-    const jsRes = await fetch("/api/compile-js", fetchOpts)
-    const jsData = await jsRes.json()
-    if (jsRes.ok && jsData.js) {
-      preview.runJs(jsData.js, cssContent)
-    } else {
-      const jsErr = jsData.error ? jsData.error : "JS compile failed"
-      terminal.appendLine("JS compile error: " + jsErr)
-      preview.setText(jsErr)
+    try {
+      let js = window.__tishCompileToJs(src)
+      let runtime = await getTishactRuntime()
+      let jsWithRuntime = runtime + "\n" + js
+      preview.runJs(jsWithRuntime, cssContent)
+    } catch (e) {
+      terminal.appendLine("JS compile error: " + String(e))
+      preview.setText(String(e))
     }
   } catch (e) {
     terminal.appendLine("Error: " + e)

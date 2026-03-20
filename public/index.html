@@ -16,8 +16,13 @@
       return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     };
 
-    import init, { run } from "./dist/tish_vm.js";
-    await init();
+    import vmInit, { run } from "./dist/tish_vm.js";
+    await vmInit();
+
+    import compilerInit, { compile_to_bytecode, compile_to_js } from "./dist/tish_compiler.js";
+    await compilerInit();
+    window.__tishCompileToBytecode = compile_to_bytecode;
+    window.__tishCompileToJs = compile_to_js;
 
     window.__tishVmRunCaptured = function (chunk) {
       const lines = [];

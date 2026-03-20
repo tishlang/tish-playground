@@ -1,0 +1,7 @@
+{
+  "name": "tish-playground",
+  "private": true,
+  "scripts": {
+    "build": "bash build.sh"
+  }
+}
