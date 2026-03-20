@@ -183,6 +183,20 @@ async fn getTishactRuntime() {
   return tishactRuntimeCache
 }
 
+fn buildTishFilesMap(fileEntriesRef) {
+  let entries = fileEntriesRef !== null && fileEntriesRef !== undefined ? fileEntriesRef.current : []
+  let map = {}
+  let i = 0
+  while (i < entries.length) {
+    let e = entries[i]
+    if (e.path.endsWith(".tish")) {
+      map[e.path] = e.text
+    }
+    i = i + 1
+  }
+  return JSON.stringify(map)
+}
+
 async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef) {
   try {
     terminal.clear()
@@ -191,9 +205,10 @@ async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef)
     let cssContent = cssEntry !== null ? cssEntry.text : ""
     let lines = []
     let isWeb = path === "web.tish"
+    let filesJson = buildTishFilesMap(fileEntriesRef)
     if (!isWeb) {
       try {
-        let b64 = window.__tishCompileToBytecode(src)
+        let b64 = window.__tishCompileToBytecodeWithImports(path, filesJson)
         const bytes = window.__tishDecodeB64(b64)
         lines = window.__tishVmRunCaptured(bytes)
         let i = 0
@@ -207,7 +222,7 @@ async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef)
       }
     }
     try {
-      let js = window.__tishCompileToJs(src)
+      let js = window.__tishCompileToJsWithImports(path, filesJson)
       let runtime = await getTishactRuntime()
       let jsWithRuntime = runtime + "\n" + js
       preview.runJs(jsWithRuntime, cssContent)

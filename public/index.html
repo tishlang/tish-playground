@@ -19,10 +19,12 @@
     import vmInit, { run } from "./dist/tish_vm.js";
     await vmInit();
 
-    import compilerInit, { compile_to_bytecode, compile_to_js } from "./dist/tish_compiler.js";
+    import compilerInit, { compile_to_bytecode, compile_to_js, compile_to_bytecode_with_imports, compile_to_js_with_imports } from "./dist/tish_compiler.js";
     await compilerInit();
     window.__tishCompileToBytecode = compile_to_bytecode;
     window.__tishCompileToJs = compile_to_js;
+    window.__tishCompileToBytecodeWithImports = compile_to_bytecode_with_imports;
+    window.__tishCompileToJsWithImports = compile_to_js_with_imports;
 
     window.__tishVmRunCaptured = function (chunk) {
       const lines = [];

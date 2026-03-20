@@ -17,6 +17,6 @@ All panels are **Tishact components** under [`app/panels/`](app/panels/). They u
 2. In [`app/shell.tish`](app/shell.tish), change the import and the JSX usage, e.g. `{EditorPanelCodemirror(editorApiRef)}`.
 3. Rebuild: `just build-app`.
 
-## Single-file compile
+## Imports and virtual files
 
-Compile runs **100% in the browser** (compiler WASM). Top-level `import` / `export` is not supported, so each virtual file must be runnable on its own. Use **main.tish** for primary examples; other tabs are extra buffers.
+Compile runs **100% in the browser** (compiler WASM). The playground supports top-level `import` and `export` across virtual files. When you Run, the compiler resolves imports from the file map (main.tish, lib.tish, web.tish) and merges them into a single program for bytecode and JS targets.
