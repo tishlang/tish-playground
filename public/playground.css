@@ -38,6 +38,16 @@ body {
   min-height: 100vh;
 }
 
+.pg-root-resizing-v {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.pg-root-resizing-h {
+  cursor: row-resize;
+  user-select: none;
+}
+
 .pg-header {
   display: flex;
   align-items: center;
@@ -54,7 +64,7 @@ body {
   letter-spacing: -0.02em;
 }
 
-.pg-header__actions {
+.pg-header-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -125,13 +135,13 @@ body {
   min-height: 0;
 }
 
-.pg-col--left {
+.pg-col-left {
   width: calc(var(--left-width) * 1%);
   min-width: 200px;
   border-right: 1px solid var(--border);
 }
 
-.pg-col--right {
+.pg-col-right {
   flex: 1;
   min-width: 180px;
   display: flex;
@@ -139,11 +149,14 @@ body {
 }
 
 .pg-resize-v {
-  width: 6px;
+  width: 8px;
   flex-shrink: 0;
   cursor: col-resize;
   background: transparent;
   transition: background 0.15s;
+  flex-grow: 0;
+  position: relative;
+  z-index: 5;
 }
 
 .pg-resize-v:hover {
@@ -152,11 +165,14 @@ body {
 }
 
 .pg-resize-h {
-  height: 6px;
+  height: 8px;
   flex-shrink: 0;
   cursor: row-resize;
   background: transparent;
   transition: background 0.15s;
+  flex-grow: 0;
+  position: relative;
+  z-index: 5;
 }
 
 .pg-resize-h:hover {
@@ -164,13 +180,13 @@ body {
   opacity: 0.3;
 }
 
-.pg-col--right .pg-panel--terminal {
+.pg-col-right .pg-panel-terminal {
   height: calc(var(--terminal-height) * 1%);
   min-height: 80px;
   flex: 0 0 auto;
 }
 
-.pg-col--right .pg-panel--preview {
+.pg-col-right .pg-panel-preview {
   flex: 1;
   min-height: 80px;
 }
@@ -188,12 +204,12 @@ body {
   border-bottom: none;
 }
 
-.pg-panel--files {
+.pg-panel-files {
   flex: 0 0 auto;
   max-height: 8rem;
 }
 
-.pg-panel--editor {
+.pg-panel-editor {
   flex: 2;
   padding: 0;
   overflow: hidden;
@@ -215,7 +231,7 @@ body {
   border-color: oklch(0.72 0.18 295 / 0.2);
 }
 
-.pg-editor-chrome__header {
+.pg-editor-chrome-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -225,13 +241,13 @@ body {
   background: var(--card);
 }
 
-.pg-editor-chrome__dots {
+.pg-editor-chrome-dots {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
 
-.pg-editor-chrome__dot {
+.pg-editor-chrome-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -239,13 +255,13 @@ body {
   opacity: 0.2;
 }
 
-.pg-editor-chrome__filename {
+.pg-editor-chrome-filename {
   font-size: 0.75rem;
   color: var(--muted-foreground);
   margin-left: 0.25rem;
 }
 
-.pg-editor-chrome__tabs {
+.pg-editor-chrome-tabs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -253,7 +269,7 @@ body {
   margin-left: auto;
 }
 
-.pg-editor-chrome__tab {
+.pg-editor-chrome-tab {
   font-family: inherit;
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
@@ -265,22 +281,22 @@ body {
   transition: color 0.15s, background 0.15s;
 }
 
-.pg-editor-chrome__tab:hover {
+.pg-editor-chrome-tab:hover {
   color: var(--foreground);
 }
 
-.pg-editor-chrome__tab--active {
+.pg-editor-chrome-tab-active {
   background: var(--secondary);
   color: var(--foreground);
 }
 
-.pg-editor-chrome__body {
+.pg-editor-chrome-body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
-.pg-files__title {
+.pg-files-title {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -288,7 +304,7 @@ body {
   margin-bottom: 0.35rem;
 }
 
-.pg-files__item {
+.pg-files-item {
   display: block;
   width: 100%;
   text-align: left;
@@ -304,11 +320,11 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 
-.pg-files__item:hover {
+.pg-files-item:hover {
   background: oklch(0.72 0.18 295 / 0.12);
 }
 
-.pg-files__item--selected {
+.pg-files-item-selected {
   background: oklch(0.72 0.18 295 / 0.2);
   font-weight: 600;
 }

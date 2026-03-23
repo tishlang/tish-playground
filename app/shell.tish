@@ -1,11 +1,11 @@
 // Playground shell: Lattish createRoot + ShellApp (JSX).
+// Uses hooks and CSS; avoids imperative DOM/style manipulation.
 
-import { createRoot, useRef, useLayoutEffect } from "lattish"
+import { createRoot, useState, useRef, useLayoutEffect } from "lattish"
 import { EditorPanel } from "./panels/EditorPanel.tish"
 import { TerminalPanel } from "./panels/TerminalPanel.tish"
 import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
 import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
-
 const STORAGE_KEY = "tish-playground-files"
 const LAYOUT_STORAGE_KEY = "tish-playground-layout"
 
@@ -92,6 +92,29 @@ fn ShellApp() {
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
   let currentContent = curEntry !== null ? curEntry.text : ""
 
+  fn handleRun() {
+    let editor = editorApiRef !== null ? editorApiRef.current : null
+    let term = terminalApiRef !== null ? terminalApiRef.current : null
+    let prev = previewApiRef !== null ? previewApiRef.current : null
+    let btn = runButtonRef !== null ? runButtonRef.current : null
+    if (editor === null || term === null || prev === null || btn === null) { return }
+    if (btn.disabled) { return }
+    let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
+    if (cur === null) { return }
+    cur.text = editor.getContent()
+    saveFilesToStorage(fileEntriesRef.current)
+    let runPath = currentPathRef.current
+    let runSrc = cur.text
+    if (currentPathRef.current === "web-preview.css") {
+      runPath = "web.tish"
+      let webCur = findEntry(fileEntriesRef.current, "web.tish")
+      runSrc = webCur !== null ? webCur.text : ""
+    }
+    btn.disabled = true
+    btn.textContent = "Running…"
+    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef)
+  }
+
   fn handleEditorKeydown(e) {
     let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
     let mod = isMac ? e.metaKey : e.ctrlKey
@@ -140,8 +163,52 @@ fn ShellApp() {
     }
   }
 
+  fn startResizeV(e) {
+    if (e.button !== 0) { return }
+    e.preventDefault()
+    let body = bodyRef.current
+    if (body === null) { return }
+    fn onMove(m) {
+      let rect = body.getBoundingClientRect()
+      let pct = ((m.clientX - rect.left) / rect.width) * 100
+      if (pct < 20) { pct = 20 }
+      if (pct > 80) { pct = 80 }
+      layoutRef.current = { leftWidth: pct, terminalHeight: layoutRef.current.terminalHeight }
+      saveLayoutToStorage(pct, layoutRef.current.terminalHeight)
+      body.style.setProperty("--left-width", String(pct))
+    }
+    fn onUp() {
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("mouseup", onUp)
+    }
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("mouseup", onUp)
+  }
+
+  fn startResizeH(e) {
+    if (e.button !== 0) { return }
+    e.preventDefault()
+    let body = bodyRef.current
+    if (body === null) { return }
+    fn onMove(m) {
+      let rect = body.getBoundingClientRect()
+      let pct = ((m.clientY - rect.top) / rect.height) * 100
+      if (pct < 15) { pct = 15 }
+      if (pct > 85) { pct = 85 }
+      layoutRef.current = { leftWidth: layoutRef.current.leftWidth, terminalHeight: pct }
+      saveLayoutToStorage(layoutRef.current.leftWidth, pct)
+      body.style.setProperty("--terminal-height", String(pct))
+    }
+    fn onUp() {
+      document.removeEventListener("mousemove", onMove)
+      document.removeEventListener("mouseup", onUp)
+    }
+    document.addEventListener("mousemove", onMove)
+    document.addEventListener("mouseup", onUp)
+  }
+
   useLayoutEffect(() => {
-    fn onGlobalKeydown(e) {
+    fn onKeydown(e) {
       let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
       let mod = isMac ? e.metaKey : e.ctrlKey
       if (!mod) { return }
@@ -158,31 +225,18 @@ fn ShellApp() {
       } else if (e.key === "Enter") {
         e.preventDefault()
         handleRun()
-      } else if (e.key >= "1" && e.key <= "4") {
-        let t = document.activeElement
-        if (t !== null && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) { return }
-        e.preventDefault()
-        let idx = parseInt(e.key, 10) - 1
-        let p = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
-        if (idx >= 0 && idx < p.length) { onSelect(p[idx]) }
-      } else if (e.key === "Tab") {
-        let t = document.activeElement
-        if (t !== null && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) { return }
-        e.preventDefault()
-        let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
-        let cur = currentPathRef.current
-        let idx = -1
-        let i = 0
-        while (i < paths.length) {
-          if (paths[i] === cur) { idx = i; break }
-          i = i + 1
-        }
-        idx = e.shiftKey ? (idx <= 0 ? paths.length - 1 : idx - 1) : (idx >= paths.length - 1 ? 0 : idx + 1)
-        onSelect(paths[idx])
       }
     }
-    document.addEventListener("keydown", onGlobalKeydown)
-    fn cleanup() { document.removeEventListener("keydown", onGlobalKeydown) }
+    document.addEventListener("keydown", onKeydown)
+    return () => document.removeEventListener("keydown", onKeydown)
+  }, [])
+
+  useLayoutEffect(() => {
+    let body = bodyRef.current
+    if (body !== null) {
+      body.style.setProperty("--left-width", String(layoutRef.current.leftWidth))
+      body.style.setProperty("--terminal-height", String(layoutRef.current.terminalHeight))
+    }
     fn applyEditorSync() {
       let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
       if (editor === null || editor === undefined) { return }
@@ -204,7 +258,6 @@ fn ShellApp() {
     } else {
       queueMicrotask(applyEditorSync)
     }
-    return cleanup
   }, [])
 
   fn onSelect(path) {
@@ -232,15 +285,15 @@ fn ShellApp() {
     }
     let panel = filesPanelRef !== null && filesPanelRef !== undefined ? filesPanelRef.current : null
     if (panel !== null) {
-      let btns = panel.querySelectorAll(".pg-files__item")
+      let btns = panel.querySelectorAll(".pg-files-item")
       let j = 0
       while (j < btns.length) {
         let btn = btns[j]
         let selected = btn.textContent === path
         if (selected) {
-          btn.classList.add("pg-files__item--selected")
+          btn.classList.add("pg-files-item-selected")
         } else {
-          btn.classList.remove("pg-files__item--selected")
+          btn.classList.remove("pg-files-item-selected")
         }
         j = j + 1
       }
@@ -249,15 +302,15 @@ fn ShellApp() {
     if (fnEl !== null) { fnEl.textContent = path }
     let tabsEl = editorTabsRef !== null && editorTabsRef !== undefined ? editorTabsRef.current : null
     if (tabsEl !== null) {
-      let tabBtns = tabsEl.querySelectorAll(".pg-editor-chrome__tab")
+      let tabBtns = tabsEl.querySelectorAll(".pg-editor-chrome-tab")
       let k = 0
       while (k < tabBtns.length) {
         let tb = tabBtns[k]
         let sel = tb.textContent === path
         if (sel) {
-          tb.classList.add("pg-editor-chrome__tab--active")
+          tb.classList.add("pg-editor-chrome-tab-active")
         } else {
-          tb.classList.remove("pg-editor-chrome__tab--active")
+          tb.classList.remove("pg-editor-chrome-tab-active")
         }
         k = k + 1
       }
@@ -269,143 +322,61 @@ fn ShellApp() {
     if (p === undefined || p === null) { return }
     layoutRef.current = { leftWidth: p.leftWidth, terminalHeight: p.terminalHeight }
     saveLayoutToStorage(p.leftWidth, p.terminalHeight)
-    let body = bodyRef !== null ? bodyRef.current : null
+    let body = bodyRef.current
     if (body !== null) {
       body.style.setProperty("--left-width", String(p.leftWidth))
       body.style.setProperty("--terminal-height", String(p.terminalHeight))
     }
   }
 
-  useLayoutEffect(() => {
-    let body = bodyRef !== null ? bodyRef.current : null
-    if (body === null) { return }
-    fn onResizeV(e) {
-      if (e.button !== 0) { return }
-      e.preventDefault()
-      let startX = e.clientX
-      let startLeft = layout.leftWidth
-      fn onMove(m) {
-        let rect = body.getBoundingClientRect()
-        let pct = ((m.clientX - rect.left) / rect.width) * 100
-        if (pct < 20) { pct = 20 }
-        if (pct > 80) { pct = 80 }
-        let cur = layoutRef.current
-        layoutRef.current = { leftWidth: pct, terminalHeight: cur.terminalHeight }
-        saveLayoutToStorage(pct, cur.terminalHeight)
-        body.style.setProperty("--left-width", String(pct))
-      }
-      fn onUp() {
-        document.removeEventListener("mousemove", onMove)
-        document.removeEventListener("mouseup", onUp)
-        document.body.style.cursor = ""
-        document.body.style.userSelect = ""
-      }
-      document.addEventListener("mousemove", onMove)
-      document.addEventListener("mouseup", onUp)
-      document.body.style.cursor = "col-resize"
-      document.body.style.userSelect = "none"
-    }
-    fn onResizeH(e) {
-      if (e.button !== 0) { return }
-      e.preventDefault()
-      fn onMove(m) {
-        let rect = body.getBoundingClientRect()
-        let pct = ((m.clientY - rect.top) / rect.height) * 100
-        if (pct < 15) { pct = 15 }
-        if (pct > 85) { pct = 85 }
-        let cur = layoutRef.current
-        layoutRef.current = { leftWidth: cur.leftWidth, terminalHeight: pct }
-        saveLayoutToStorage(cur.leftWidth, pct)
-        body.style.setProperty("--terminal-height", String(pct))
-      }
-      fn onUp() {
-        document.removeEventListener("mousemove", onMove)
-        document.removeEventListener("mouseup", onUp)
-        document.body.style.cursor = ""
-        document.body.style.userSelect = ""
-      }
-      document.addEventListener("mousemove", onMove)
-      document.addEventListener("mouseup", onUp)
-      document.body.style.cursor = "row-resize"
-      document.body.style.userSelect = "none"
-    }
-    let hv = body.querySelector(".pg-resize-v")
-    let hh = body.querySelector(".pg-resize-h")
-    if (hv !== null) { hv.onmousedown = onResizeV }
-    if (hh !== null) { hh.onmousedown = onResizeH }
-  }, [])
-
-  fn handleRun() {
-    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-    let term = terminalApiRef !== null && terminalApiRef !== undefined ? terminalApiRef.current : null
-    let prev = previewApiRef !== null && previewApiRef !== undefined ? previewApiRef.current : null
-    let btn = runButtonRef !== null && runButtonRef !== undefined ? runButtonRef.current : null
-    if (editor === null || term === null || prev === null || btn === null) { return }
-    if (btn.disabled) { return }
-    let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-    if (cur === null) { return }
-    cur.text = editor.getContent()
-    saveFilesToStorage(fileEntriesRef.current)
-    let runPath = currentPathRef.current
-    let runSrc = cur.text
-    if (currentPathRef.current === "web-preview.css") {
-      runPath = "web.tish"
-      let webCur = findEntry(fileEntriesRef.current, "web.tish")
-      runSrc = webCur !== null ? webCur.text : ""
-    }
-    btn.disabled = true
-    btn.textContent = "Running…"
-    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef)
-  }
-
   return <div class="pg-root">
     <header class="pg-header">
       <h1 class="pg-title">{"Tish playground"}</h1>
-      <div class="pg-header__actions">
+      <div class="pg-header-actions">
         <div class="pg-layout-presets">
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("split")} title="Split layout">{"Split"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("editor")} title="Editor focus">{"Editor"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
-        <span class="pg-hotkeys" title="Ctrl/⌘+S Save · Ctrl/⌘+Enter Run · Ctrl/⌘+1-4 Tabs · Ctrl/⌘+Tab Switch tab">{"⌘S ⌘↵ ⌘1-4"}</span>
+        <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
     </header>
-    <div ref={bodyRef} class="pg-body" style={"--left-width: " + String(layoutRef.current.leftWidth) + "; --terminal-height: " + String(layoutRef.current.terminalHeight)}>
-      <div class="pg-col pg-col--left">
-        <div ref={filesPanelRef} class="pg-panel pg-panel--files">
+    <div ref={bodyRef} class="pg-body">
+      <div class="pg-col pg-col-left">
+        <div ref={filesPanelRef} class="pg-panel pg-panel-files">
           {FileBrowserPanel(paths, currentPath, onSelect)}
         </div>
-        <div class="pg-panel pg-panel--editor">
+        <div class="pg-panel pg-panel-editor">
           <div class="pg-editor-chrome">
-            <div class="pg-editor-chrome__header">
-              <div class="pg-editor-chrome__dots">
-                <div class="pg-editor-chrome__dot" />
-                <div class="pg-editor-chrome__dot" />
-                <div class="pg-editor-chrome__dot" />
+            <div class="pg-editor-chrome-header">
+              <div class="pg-editor-chrome-dots">
+                <div class="pg-editor-chrome-dot" />
+                <div class="pg-editor-chrome-dot" />
+                <div class="pg-editor-chrome-dot" />
               </div>
-              <span ref={editorFilenameRef} class="pg-editor-chrome__filename">{currentPath}</span>
-              <div ref={editorTabsRef} class="pg-editor-chrome__tabs">
-                <button type="button" class={currentPath === "main.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("main.tish")}>{"main.tish"}</button>
-                <button type="button" class={currentPath === "web.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("web.tish")}>{"web.tish"}</button>
-                <button type="button" class={currentPath === "lib.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("lib.tish")}>{"lib.tish"}</button>
-                <button type="button" class={currentPath === "web-preview.css" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("web-preview.css")}>{"web-preview.css"}</button>
+              <span ref={editorFilenameRef} class="pg-editor-chrome-filename">{currentPath}</span>
+              <div ref={editorTabsRef} class="pg-editor-chrome-tabs">
+                <button type="button" class={currentPath === "main.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("main.tish")}>{"main.tish"}</button>
+                <button type="button" class={currentPath === "web.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("web.tish")}>{"web.tish"}</button>
+                <button type="button" class={currentPath === "lib.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("lib.tish")}>{"lib.tish"}</button>
+                <button type="button" class={currentPath === "web-preview.css" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("web-preview.css")}>{"web-preview.css"}</button>
               </div>
             </div>
-            <div class="pg-editor-chrome__body">
+            <div class="pg-editor-chrome-body">
               {EditorPanel(editorApiRef, currentContent, currentPath, handleEditorKeydown)}
             </div>
           </div>
         </div>
       </div>
-      <div class="pg-resize-v" />
-      <div class="pg-col pg-col--right">
-        <div class="pg-panel pg-panel--terminal">
+      <div class="pg-resize-v" role="separator" ariaOrientation="vertical" onmousedown={startResizeV} />
+      <div class="pg-col pg-col-right">
+        <div class="pg-panel pg-panel-terminal">
           {TerminalPanel(terminalApiRef)}
         </div>
-        <div class="pg-resize-h" />
-        <div class="pg-panel pg-panel--preview">
+        <div class="pg-resize-h" role="separator" ariaOrientation="horizontal" onmousedown={startResizeH} />
+        <div class="pg-panel pg-panel-preview">
           {WebPreviewPanel(previewApiRef, previewStateRef)}
         </div>
       </div>
