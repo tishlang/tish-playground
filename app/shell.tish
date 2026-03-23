@@ -8,7 +8,6 @@ import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
 import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
 const STORAGE_KEY = "tish-playground-files"
 const LAYOUT_STORAGE_KEY = "tish-playground-layout"
-const RUN_OPTS_STORAGE_KEY = "tish-playground-run-opts"
 
 fn findEntry(entries, path) {
   for (let e of entries) {
@@ -63,30 +62,33 @@ fn saveLayoutToStorage(leftWidth, terminalHeight) {
   localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ leftWidth, terminalHeight }))
 }
 
-fn loadRunOptsFromStorage() {
-  try {
-    const raw = localStorage.getItem(RUN_OPTS_STORAGE_KEY)
-    if (!raw) { return { useJsCompile: true, useJsx: true } }
-    let obj = JSON.parse(raw)
-    return { useJsCompile: obj.useJsCompile !== false, useJsx: obj.useJsx !== false }
-  } catch (_) { }
-  return { useJsCompile: true, useJsx: true }
-}
-
-fn saveRunOptsToStorage(useJsCompile, useJsx) {
-  localStorage.setItem(RUN_OPTS_STORAGE_KEY, JSON.stringify({ useJsCompile, useJsx }))
-}
-
 fn loadEditorConfigFromStorage() {
   try {
     const raw = localStorage.getItem("tish-playground-editor-config")
-    if (!raw) { return { indentStyle: "2", lineComment: "//" } }
+    if (!raw) { return { indentStyle: "2", lineComment: "//", useJsCompile: true, useJsx: true } }
     let obj = JSON.parse(raw)
     let style = obj.indentStyle
     if (style !== "tab" && style !== "2" && style !== "4") { style = "2" }
-    return { indentStyle: style, lineComment: obj.lineComment !== undefined ? obj.lineComment : "//" }
+    return {
+      indentStyle: style,
+      lineComment: obj.lineComment !== undefined ? obj.lineComment : "//",
+      useJsCompile: obj.useJsCompile !== false,
+      useJsx: obj.useJsx !== false
+    }
   } catch (_) { }
-  return { indentStyle: "2", lineComment: "//" }
+  return { indentStyle: "2", lineComment: "//", useJsCompile: true, useJsx: true }
+}
+
+fn saveEditorConfigToStorage(updates) {
+  try {
+    let cur = loadEditorConfigFromStorage()
+    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment, useJsCompile: cur.useJsCompile, useJsx: cur.useJsx }
+    if (updates.indentStyle !== undefined) { merged.indentStyle = updates.indentStyle }
+    if (updates.lineComment !== undefined) { merged.lineComment = updates.lineComment }
+    if (updates.useJsCompile !== undefined) { merged.useJsCompile = updates.useJsCompile }
+    if (updates.useJsx !== undefined) { merged.useJsx = updates.useJsx }
+    localStorage.setItem("tish-playground-editor-config", JSON.stringify(merged))
+  } catch (_) { }
 }
 
 fn ShellApp() {
@@ -117,12 +119,12 @@ fn ShellApp() {
   let previewStateRef = useRef(null)
   let runButtonRef = useRef(null)
   let runIdRef = useRef(0)
-  let editorConfigRef = useRef(loadEditorConfigFromStorage())
-  let savedRunOpts = loadRunOptsFromStorage()
-  let useJsCompileState = useState(savedRunOpts.useJsCompile)
+  let savedConfig = loadEditorConfigFromStorage()
+  let editorConfigRef = useRef(savedConfig)
+  let useJsCompileState = useState(savedConfig.useJsCompile)
   let useJsCompile = useJsCompileState[0]
   let setUseJsCompile = useJsCompileState[1]
-  let useJsxState = useState(savedRunOpts.useJsx)
+  let useJsxState = useState(savedConfig.useJsx)
   let useJsx = useJsxState[0]
   let setUseJsx = useJsxState[1]
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
@@ -228,7 +230,7 @@ fn ShellApp() {
     if (body === null) { return }
     fn onMove(m) {
       let rect = body.getBoundingClientRect()
-      let pct = ((m.clientY - rect.top) / rect.height) * 100
+      let pct = ((rect.bottom - m.clientY) / rect.height) * 100
       if (pct < 15) { pct = 15 }
       if (pct > 85) { pct = 85 }
       layoutRef.current = { leftWidth: layoutRef.current.leftWidth, terminalHeight: pct }
@@ -389,14 +391,8 @@ fn ShellApp() {
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
-        <label class="pg-check">
-          <input type="checkbox" checked={useJsCompile} onchange={(e) => { let v = e.target.checked; setUseJsCompile(v); saveRunOptsToStorage(v, useJsx) }} />
-          <span>{"JS compile"}</span>
-        </label>
-        <label class="pg-check">
-          <input type="checkbox" checked={useJsx} onchange={(e) => { let v = e.target.checked; setUseJsx(v); saveRunOptsToStorage(useJsCompile, v) }} />
-          <span>{"JSX"}</span>
-        </label>
+        <button type="button" class={useJsCompile ? "pg-toggle pg-toggle-on" : "pg-toggle"} onclick={() => { let v = !useJsCompile; setUseJsCompile(v); saveEditorConfigToStorage({ useJsCompile: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="Compile to JS and run in iframe">{"JS compile"}</button>
+        <button type="button" class={useJsx ? "pg-toggle pg-toggle-on" : "pg-toggle"} onclick={() => { let v = !useJsx; setUseJsx(v); saveEditorConfigToStorage({ useJsx: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="Compile with Lattish JSX">{"JSX"}</button>
         <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
@@ -430,12 +426,12 @@ fn ShellApp() {
       </div>
       <div class="pg-resize-v" role="separator" ariaOrientation="vertical" onmousedown={startResizeV} />
       <div class="pg-col pg-col-right">
-        <div class="pg-panel pg-panel-terminal">
-          {TerminalPanel(terminalApiRef)}
-        </div>
-        <div class="pg-resize-h" role="separator" ariaOrientation="horizontal" onmousedown={startResizeH} />
         <div class="pg-panel pg-panel-preview">
           {WebPreviewPanel(previewApiRef, previewStateRef)}
+        </div>
+        <div class="pg-resize-h" role="separator" ariaOrientation="horizontal" onmousedown={startResizeH} />
+        <div class="pg-panel pg-panel-terminal">
+          {TerminalPanel(terminalApiRef)}
         </div>
       </div>
     </div>

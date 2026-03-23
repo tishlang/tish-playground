@@ -93,20 +93,27 @@ body {
   border-color: var(--muted-foreground);
 }
 
-.pg-check {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+.pg-toggle {
+  font-family: inherit;
   font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
   color: var(--muted-foreground);
   cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.pg-check input {
-  cursor: pointer;
+.pg-toggle:hover {
+  color: var(--foreground);
+  background: var(--secondary);
+  border-color: var(--muted-foreground);
 }
 
-.pg-check:hover {
+.pg-toggle-on {
+  background: oklch(0.72 0.18 295 / 0.2);
+  border-color: var(--primary);
   color: var(--foreground);
 }
 
@@ -408,6 +415,7 @@ body {
   resize: none;
   padding: 0.6rem;
   border: none;
+  outline: none;
   background: transparent;
   color: transparent;
   caret-color: var(--foreground);
@@ -415,6 +423,10 @@ body {
   font-size: 0.85rem;
   line-height: 1.45;
   white-space: pre;
+}
+
+.pg-editor__textarea:focus {
+  outline: none;
 }
 
 .pg-editor__textarea::selection {
