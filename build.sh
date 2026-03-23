@@ -24,16 +24,15 @@ echo "Building playground app..."
   --target js --jsx lattish)
 
 echo "Building WASM VM..."
-(cd "$TISH_ROOT" && cargo build -p tish_wasm_runtime \
-  --target wasm32-unknown-unknown --release --features browser)
-wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tish_wasm_runtime.wasm" \
+(cd "$TISH_ROOT/crates/tish_wasm_runtime" && cargo build --target wasm32-unknown-unknown --release --features browser)
+wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tishlang_wasm_runtime.wasm" \
   --out-dir "$PLAYGROUND_ROOT/public/dist" \
   --out-name tish_vm \
   --target web
 
 echo "Building compiler WASM..."
-(cd "$TISH_ROOT" && cargo build -p tish_compiler_wasm --target wasm32-unknown-unknown --release)
-wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tish_compiler_wasm.wasm" \
+(cd "$TISH_ROOT" && cargo build -p tishlang_compiler_wasm --target wasm32-unknown-unknown --release)
+wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tishlang_compiler_wasm.wasm" \
   --out-dir "$PLAYGROUND_ROOT/public/dist" \
   --out-name tish_compiler \
   --target web
