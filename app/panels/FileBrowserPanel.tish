@@ -1,6 +1,6 @@
 // File list panel (JSX).
 
-import { h, Fragment } from "../tishact/Tishact.tish"
+import {} from "lattish"
 
 export fn FileBrowserPanel(paths, currentPath, onSelect) {
   let items = []

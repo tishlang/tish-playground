@@ -1,6 +1,6 @@
-# Modular panels (Tishact + JSX)
+# Modular panels (Lattish + JSX)
 
-All panels are **Tishact components** under [`app/panels/`](app/panels/). They use **JSX** only—no `document.createElement`, no `setAttribute`. The shell uses `createRoot` and composes these panels via `{EditorPanel(...)}`, etc.
+All panels are **Lattish components** under [`app/panels/`](app/panels/). They use **JSX** only—no `document.createElement`, no `setAttribute`. Import hooks (or other symbols) from the **lattish** package (`import { ... } from 'lattish'`); the merged bundle supplies the JSX runtime. For JSX-only panels, `import {} from 'lattish'` pulls the module in with no extra bindings. The shell uses `createRoot` and composes panels via `{EditorPanel(...)}`, etc.
 
 ## Current panels
 
@@ -13,7 +13,7 @@ All panels are **Tishact components** under [`app/panels/`](app/panels/). They u
 
 ## How to swap a panel
 
-1. Add a new Tishact/JSX component, e.g. `app/panels/EditorPanelCodemirror.tish`, exporting a function that returns JSX and uses `useRef`/`useLayoutEffect` to expose the same API via the given `apiRef`.
+1. Add a new Lattish/JSX component, e.g. `app/panels/EditorPanelCodemirror.tish`, exporting a function that returns JSX and uses `useRef`/`useLayoutEffect` to expose the same API via the given `apiRef`.
 2. In [`app/shell.tish`](app/shell.tish), change the import and the JSX usage, e.g. `{EditorPanelCodemirror(editorApiRef)}`.
 3. Rebuild: `just build-app`.
 

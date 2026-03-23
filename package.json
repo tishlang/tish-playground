@@ -3,5 +3,11 @@
   "private": true,
   "scripts": {
     "build": "bash build.sh"
+  },
+  "dependencies": {
+    "lattish": "^1.0.6"
+  },
+  "devDependencies": {
+    "@tishlang/tish": "^1.0.22"
   }
 }

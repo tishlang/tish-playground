@@ -1,6 +1,6 @@
 // Editor panel with syntax highlighting overlay. Modular, minimal, written in Tish.
 
-import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
+import { useRef, useLayoutEffect } from "lattish"
 import { highlightToHtml } from "../highlight/TishHighlight.tish"
 
 export fn EditorPanel(apiRef, initialContent, filePath) {

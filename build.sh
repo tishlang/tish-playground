@@ -2,39 +2,38 @@
 set -euo pipefail
 
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
-TISH_ROOT="${TISH_ROOT:-$PLAYGROUND_ROOT/../tish}"
+TISH_ROOT="${TISH_ROOT:-$PLAYGROUND_ROOT/node_modules/@tishlang/tish}"
 
 if [[ ! -d "$TISH_ROOT" ]]; then
   echo "Error: Tish compiler not found at $TISH_ROOT"
-  echo "Set TISH_ROOT or ensure tish is at ../tish (e.g. monorepo with tish and tish-playground)"
+  echo "Run: npm install"
   exit 1
 fi
 
 mkdir -p "$PLAYGROUND_ROOT/public/dist"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PLAYGROUND_ROOT/target}"
 
-echo "Building Tishact runtime..."
-(cd "$TISH_ROOT" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- \
-  compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
-  -o "$PLAYGROUND_ROOT/public/dist/tishact-runtime.js" \
-  --target js --jsx tishact)
+echo "Building Lattish runtime..."
+(cd "$PLAYGROUND_ROOT" && npx tish compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
+  -o "$PLAYGROUND_ROOT/public/dist/lattish-runtime.js" \
+  --target js --jsx lattish)
 
 echo "Building playground app..."
-(cd "$TISH_ROOT" && env -u CARGO_TARGET_DIR cargo run -p tish --release -- \
-  compile "$PLAYGROUND_ROOT/app/main.tish" \
+(cd "$PLAYGROUND_ROOT" && npx tish compile "$PLAYGROUND_ROOT/app/main.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/playground.js" \
-  --target js --jsx tishact)
+  --target js --jsx lattish)
 
 echo "Building WASM VM..."
-(cd "$TISH_ROOT" && env -u CARGO_TARGET_DIR cargo build -p tish_wasm_runtime \
+(cd "$TISH_ROOT" && cargo build -p tish_wasm_runtime \
   --target wasm32-unknown-unknown --release --features browser)
-wasm-bindgen "$TISH_ROOT/target/wasm32-unknown-unknown/release/tish_wasm_runtime.wasm" \
+wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tish_wasm_runtime.wasm" \
   --out-dir "$PLAYGROUND_ROOT/public/dist" \
   --out-name tish_vm \
   --target web
 
 echo "Building compiler WASM..."
-(cd "$PLAYGROUND_ROOT" && cargo build -p tish-playground-compiler --target wasm32-unknown-unknown --release)
-wasm-bindgen "$PLAYGROUND_ROOT/target/wasm32-unknown-unknown/release/tish_playground_compiler.wasm" \
+(cd "$TISH_ROOT" && cargo build -p tish_compiler_wasm --target wasm32-unknown-unknown --release)
+wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tish_compiler_wasm.wasm" \
   --out-dir "$PLAYGROUND_ROOT/public/dist" \
   --out-name tish_compiler \
   --target web

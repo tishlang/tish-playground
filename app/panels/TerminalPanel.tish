@@ -1,6 +1,6 @@
 // Terminal / console panel (JSX).
 
-import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
+import { useRef, useLayoutEffect } from "lattish"
 
 export fn TerminalPanel(apiRef) {
   let outRef = useRef(null)

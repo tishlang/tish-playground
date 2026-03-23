@@ -1,6 +1,6 @@
 // Web preview panel (JSX); iframe runs compiled JS.
 
-import { h, Fragment, useRef, useLayoutEffect } from "../tishact/Tishact.tish"
+import { useRef, useLayoutEffect } from "lattish"
 
 export fn WebPreviewPanel(apiRef, stateRef) {
   let preRef = useRef(null)

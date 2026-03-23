@@ -1,6 +1,6 @@
-// Playground shell: Tishact createRoot + ShellApp (JSX).
+// Playground shell: Lattish createRoot + ShellApp (JSX).
 
-import { createRoot, h, Fragment, useState, useRef, useLayoutEffect } from "./tishact/Tishact.tish"
+import { createRoot, useState, useRef, useLayoutEffect } from "lattish"
 import { EditorPanel } from "./panels/EditorPanel.tish"
 import { TerminalPanel } from "./panels/TerminalPanel.tish"
 import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
@@ -36,9 +36,9 @@ fn saveFilesToStorage(fileEntries) {
 
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
-  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Tishact. Run to see output in the Web preview.\n// Styles come from web-preview.css (editable in the file list).\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Tishact. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
+  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Lattish. Run to see output in the Web preview.\n// Styles come from web-preview.css (editable in the file list).\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
   const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
-  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (user's Tishact app runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (default web.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
+  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (user's Lattish app runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (default web.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
   let initialEntries = [mainEntry, webEntry, libEntry, cssEntry]
   loadFilesFromStorage(initialEntries)
   let fileEntriesRef = useRef(initialEntries)
@@ -174,13 +174,13 @@ export fn mountShell(root) {
   createRoot(root).render(ShellApp)
 }
 
-let tishactRuntimeCache = null
+let lattishRuntimeCache = null
 
-async fn getTishactRuntime() {
-  if (tishactRuntimeCache !== null) { return tishactRuntimeCache }
-  const res = await fetch("/dist/tishact-runtime.js")
-  tishactRuntimeCache = await res.text()
-  return tishactRuntimeCache
+async fn getLattishRuntime() {
+  if (lattishRuntimeCache !== null) { return lattishRuntimeCache }
+  const res = await fetch("/dist/lattish-runtime.js")
+  lattishRuntimeCache = await res.text()
+  return lattishRuntimeCache
 }
 
 fn buildTishFilesMap(fileEntriesRef) {
@@ -223,7 +223,7 @@ async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef)
     }
     try {
       let js = window.__tishCompileToJsWithImports(path, filesJson)
-      let runtime = await getTishactRuntime()
+      let runtime = await getLattishRuntime()
       let jsWithRuntime = runtime + "\n" + js
       preview.runJs(jsWithRuntime, cssContent)
     } catch (e) {
