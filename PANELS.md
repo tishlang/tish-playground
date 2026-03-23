@@ -19,4 +19,4 @@ All panels are **Lattish components** under [`app/panels/`](app/panels/). They u
 
 ## Imports and virtual files
 
-Compile runs **100% in the browser** (compiler WASM). The playground supports top-level `import` and `export` across virtual files. When you Run, the compiler resolves imports from the file map (main.tish, lib.tish, web.tish) and merges them into a single program for bytecode and JS targets.
+Compile runs **100% in the browser** (compiler WASM). The playground supports top-level `import` and `export` across virtual files. When you Run, the compiler resolves imports from the file map (main.tish, lib.tish) and merges them into a single program for bytecode and JS targets.

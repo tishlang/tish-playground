@@ -8,6 +8,7 @@ import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
 import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
 const STORAGE_KEY = "tish-playground-files"
 const LAYOUT_STORAGE_KEY = "tish-playground-layout"
+const WEB_PREVIEW_STORAGE_KEY = "tish-playground-web-preview"
 
 fn findEntry(entries, path) {
   for (let e of entries) {
@@ -62,46 +63,52 @@ fn saveLayoutToStorage(leftWidth, terminalHeight) {
   localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ leftWidth, terminalHeight }))
 }
 
+fn loadWebPreviewFromStorage() {
+  try {
+    const raw = localStorage.getItem(WEB_PREVIEW_STORAGE_KEY)
+    if (!raw) { return true }
+    return JSON.parse(raw) !== false
+  } catch (_) { }
+  return true
+}
+
+fn saveWebPreviewToStorage(value) {
+  localStorage.setItem(WEB_PREVIEW_STORAGE_KEY, JSON.stringify(value))
+}
+
 fn loadEditorConfigFromStorage() {
   try {
     const raw = localStorage.getItem("tish-playground-editor-config")
-    if (!raw) { return { indentStyle: "2", lineComment: "//", webPreview: true } }
+    if (!raw) { return { indentStyle: "2", lineComment: "//" } }
     let obj = JSON.parse(raw)
     let style = obj.indentStyle
     if (style !== "tab" && style !== "2" && style !== "4") { style = "2" }
-    let wp = obj.webPreview !== undefined ? obj.webPreview !== false : (obj.useJsCompile !== undefined ? obj.useJsCompile !== false : true)
-    return {
-      indentStyle: style,
-      lineComment: obj.lineComment !== undefined ? obj.lineComment : "//",
-      webPreview: wp
-    }
+    return { indentStyle: style, lineComment: obj.lineComment !== undefined ? obj.lineComment : "//" }
   } catch (_) { }
-  return { indentStyle: "2", lineComment: "//", webPreview: true }
+  return { indentStyle: "2", lineComment: "//" }
 }
 
 fn saveEditorConfigToStorage(updates) {
   try {
     let cur = loadEditorConfigFromStorage()
-    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment, webPreview: cur.webPreview }
+    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment }
     if (updates.indentStyle !== undefined) { merged.indentStyle = updates.indentStyle }
     if (updates.lineComment !== undefined) { merged.lineComment = updates.lineComment }
-    if (updates.webPreview !== undefined) { merged.webPreview = updates.webPreview }
     localStorage.setItem("tish-playground-editor-config", JSON.stringify(merged))
   } catch (_) { }
 }
 
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish — primary entry (Lattish app). Styles from web-preview.css.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit main.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
-  const webEntry = { path: "web.tish", text: "// web.tish — console example\nconsole.log(\"Hello, playground\")\n" }
   const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
   const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (main.tish runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (main.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
-  let initialEntries = [mainEntry, webEntry, libEntry, cssEntry]
+  let initialEntries = [mainEntry, libEntry, cssEntry]
   loadFilesFromStorage(initialEntries)
   let fileEntriesRef = useRef(initialEntries)
 
   let currentPathRef = useRef("main.tish")
   let currentPath = currentPathRef.current
-  let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+  let paths = ["main.tish", "lib.tish", "web-preview.css"]
   let filesPanelRef = useRef(null)
   let editorFilenameRef = useRef(null)
   let editorTabsRef = useRef(null)
@@ -120,7 +127,7 @@ fn ShellApp() {
   let runIdRef = useRef(0)
   let savedConfig = loadEditorConfigFromStorage()
   let editorConfigRef = useRef(savedConfig)
-  let webPreviewState = useState(savedConfig.webPreview)
+  let webPreviewState = useState(true)
   let webPreview = webPreviewState[0]
   let setWebPreview = webPreviewState[1]
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
@@ -170,16 +177,16 @@ fn ShellApp() {
       handleRun()
       return
     }
-    if (e.key >= "1" && e.key <= "4") {
+    if (e.key >= "1" && e.key <= "3") {
       e.preventDefault()
       let idx = parseInt(e.key, 10) - 1
-      let p = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+      let p = ["main.tish", "lib.tish", "web-preview.css"]
       if (idx >= 0 && idx < p.length) { onSelect(p[idx]) }
       return
     }
     if (e.key === "Tab") {
       e.preventDefault()
-      let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+      let paths = ["main.tish", "lib.tish", "web-preview.css"]
       let cur = currentPathRef.current
       let idx = -1
       let i = 0
@@ -240,6 +247,10 @@ fn ShellApp() {
     document.addEventListener("mousemove", onMove)
     document.addEventListener("mouseup", onUp)
   }
+
+  useLayoutEffect(() => {
+    setWebPreview(loadWebPreviewFromStorage())
+  }, [])
 
   useLayoutEffect(() => {
     fn onMessage(ev) {
@@ -387,7 +398,7 @@ fn ShellApp() {
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
-        <button type="button" class={webPreview ? "pg-toggle pg-toggle-lattish pg-toggle-on" : "pg-toggle pg-toggle-lattish"} onclick={() => { let v = !webPreview; setWebPreview(v); saveEditorConfigToStorage({ webPreview: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="On: compile to JS with Lattish, run in web preview. Off: pure VM, console only.">{"Lattish DOM"}</button>
+        <button type="button" class={webPreview ? "pg-toggle pg-toggle-lattish pg-toggle-on" : "pg-toggle pg-toggle-lattish"} onclick={() => { let v = !webPreview; setWebPreview(v); saveWebPreviewToStorage(v) }} title="On: compile to JS with Lattish, run in web preview. Off: pure VM, console only.">{"Lattish DOM"}</button>
         <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
@@ -408,7 +419,6 @@ fn ShellApp() {
               <span ref={editorFilenameRef} class="pg-editor-chrome-filename">{currentPath}</span>
               <div ref={editorTabsRef} class="pg-editor-chrome-tabs">
                 <button type="button" class={currentPath === "main.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("main.tish")}>{"main.tish"}</button>
-                <button type="button" class={currentPath === "web.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("web.tish")}>{"web.tish"}</button>
                 <button type="button" class={currentPath === "lib.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("lib.tish")}>{"lib.tish"}</button>
                 <button type="button" class={currentPath === "web-preview.css" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("web-preview.css")}>{"web-preview.css"}</button>
               </div>
