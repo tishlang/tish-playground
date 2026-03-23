@@ -1,9 +1,10 @@
 // Editor panel with syntax highlighting overlay. Modular, minimal, written in Tish.
+// Supports Tab indent and passes onKeydown for shell hotkeys.
 
 import { useRef, useLayoutEffect } from "lattish"
 import { highlightToHtml } from "../highlight/TishHighlight.tish"
 
-export fn EditorPanel(apiRef, initialContent, filePath) {
+export fn EditorPanel(apiRef, initialContent, filePath, onKeydown) {
   let wrapperRef = useRef(null)
   let taRef = useRef(null)
   let highlightRef = useRef(null)
@@ -82,6 +83,40 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
         scheduleHighlight()
       }
       ta.onscroll = syncScroll
+      ta.onkeydown = (e) => {
+        let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
+        let mod = isMac ? e.metaKey : e.ctrlKey
+        if (e.key === "Tab" && !mod) {
+          e.preventDefault()
+          let start = ta.selectionStart
+          let end = ta.selectionEnd
+          let before = ta.value.substring(0, start)
+          let after = ta.value.substring(end)
+          if (e.shiftKey) {
+            if (before.endsWith("  ")) {
+              ta.value = before.slice(0, -2) + after
+              ta.selectionStart = start - 2
+              ta.selectionEnd = start - 2
+            } else if (before.endsWith("\t")) {
+              ta.value = before.slice(0, -1) + after
+              ta.selectionStart = start - 1
+              ta.selectionEnd = start - 1
+            } else {
+              return
+            }
+          } else {
+            ta.value = before + "\t" + after
+            ta.selectionStart = start + 1
+            ta.selectionEnd = start + 1
+          }
+          scheduleHighlight()
+          updateGutter(ta.value)
+          return
+        }
+        if (onKeydown !== null && onKeydown !== undefined) {
+          onKeydown(e)
+        }
+      }
       if (apiRef !== null && apiRef !== undefined) {
         apiRef.current = {
           getContent: () => ta.value,
@@ -94,7 +129,7 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
         }
       }
     }
-  }, [initialContent, filePath])
+  }, [initialContent, filePath, onKeydown])
 
   return <div ref={wrapperRef} class="pg-editor">
     <div ref={gutterRef} class="pg-editor__gutter scrollbar-thin" />

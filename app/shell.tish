@@ -1,12 +1,13 @@
 // Playground shell: Lattish createRoot + ShellApp (JSX).
 
-import { createRoot, useState, useRef, useLayoutEffect } from "lattish"
+import { createRoot, useRef, useLayoutEffect } from "lattish"
 import { EditorPanel } from "./panels/EditorPanel.tish"
 import { TerminalPanel } from "./panels/TerminalPanel.tish"
 import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
 import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
 
 const STORAGE_KEY = "tish-playground-files"
+const LAYOUT_STORAGE_KEY = "tish-playground-layout"
 
 fn findEntry(entries, path) {
   for (let e of entries) {
@@ -34,6 +35,33 @@ fn saveFilesToStorage(fileEntries) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(obj))
 }
 
+const LAYOUT_PRESETS = {
+  split: { leftWidth: 50, terminalHeight: 50 },
+  editor: { leftWidth: 70, terminalHeight: 40 },
+  output: { leftWidth: 40, terminalHeight: 55 },
+  stacked: { leftWidth: 65, terminalHeight: 25 }
+}
+
+fn loadLayoutFromStorage() {
+  try {
+    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
+    if (!raw) { return null }
+    let obj = JSON.parse(raw)
+    if (obj.leftWidth !== undefined && obj.terminalHeight !== undefined) {
+      let lw = obj.leftWidth
+      let th = obj.terminalHeight
+      if (typeof lw === "number" && lw >= 20 && lw <= 80 && typeof th === "number" && th >= 15 && th <= 85) {
+        return { leftWidth: lw, terminalHeight: th }
+      }
+    }
+  } catch (_) { }
+  return null
+}
+
+fn saveLayoutToStorage(leftWidth, terminalHeight) {
+  localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ leftWidth, terminalHeight }))
+}
+
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
   const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Lattish. Run to see output in the Web preview.\n// Styles come from web-preview.css (editable in the file list).\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
@@ -50,6 +78,12 @@ fn ShellApp() {
   let editorFilenameRef = useRef(null)
   let editorTabsRef = useRef(null)
 
+  let savedLayout = loadLayoutFromStorage()
+  let defaultLeft = savedLayout !== null ? savedLayout.leftWidth : 50
+  let defaultTerm = savedLayout !== null ? savedLayout.terminalHeight : 50
+  let layoutRef = useRef({ leftWidth: defaultLeft, terminalHeight: defaultTerm })
+
+  let bodyRef = useRef(null)
   let editorApiRef = useRef(null)
   let terminalApiRef = useRef(null)
   let previewApiRef = useRef(null)
@@ -58,7 +92,97 @@ fn ShellApp() {
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
   let currentContent = curEntry !== null ? curEntry.text : ""
 
+  fn handleEditorKeydown(e) {
+    let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
+    let mod = isMac ? e.metaKey : e.ctrlKey
+    if (!mod) { return }
+    if (e.key === "s") {
+      e.preventDefault()
+      let editor = editorApiRef !== null ? editorApiRef.current : null
+      if (editor !== null) {
+        let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
+        if (cur !== null) {
+          cur.text = editor.getContent()
+          saveFilesToStorage(fileEntriesRef.current)
+        }
+      }
+      return
+    }
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleRun()
+      return
+    }
+    if (e.key >= "1" && e.key <= "4") {
+      e.preventDefault()
+      let idx = parseInt(e.key, 10) - 1
+      let p = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+      if (idx >= 0 && idx < p.length) { onSelect(p[idx]) }
+      return
+    }
+    if (e.key === "Tab") {
+      e.preventDefault()
+      let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+      let cur = currentPathRef.current
+      let idx = -1
+      let i = 0
+      while (i < paths.length) {
+        if (paths[i] === cur) { idx = i; break }
+        i = i + 1
+      }
+      if (e.shiftKey) {
+        idx = idx <= 0 ? paths.length - 1 : idx - 1
+      } else {
+        idx = idx >= paths.length - 1 ? 0 : idx + 1
+      }
+      onSelect(paths[idx])
+      return
+    }
+  }
+
   useLayoutEffect(() => {
+    fn onGlobalKeydown(e) {
+      let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
+      let mod = isMac ? e.metaKey : e.ctrlKey
+      if (!mod) { return }
+      if (e.key === "s") {
+        e.preventDefault()
+        let editor = editorApiRef !== null ? editorApiRef.current : null
+        if (editor !== null) {
+          let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
+          if (cur !== null) {
+            cur.text = editor.getContent()
+            saveFilesToStorage(fileEntriesRef.current)
+          }
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        handleRun()
+      } else if (e.key >= "1" && e.key <= "4") {
+        let t = document.activeElement
+        if (t !== null && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) { return }
+        e.preventDefault()
+        let idx = parseInt(e.key, 10) - 1
+        let p = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+        if (idx >= 0 && idx < p.length) { onSelect(p[idx]) }
+      } else if (e.key === "Tab") {
+        let t = document.activeElement
+        if (t !== null && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) { return }
+        e.preventDefault()
+        let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
+        let cur = currentPathRef.current
+        let idx = -1
+        let i = 0
+        while (i < paths.length) {
+          if (paths[i] === cur) { idx = i; break }
+          i = i + 1
+        }
+        idx = e.shiftKey ? (idx <= 0 ? paths.length - 1 : idx - 1) : (idx >= paths.length - 1 ? 0 : idx + 1)
+        onSelect(paths[idx])
+      }
+    }
+    document.addEventListener("keydown", onGlobalKeydown)
+    fn cleanup() { document.removeEventListener("keydown", onGlobalKeydown) }
     fn applyEditorSync() {
       let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
       if (editor === null || editor === undefined) { return }
@@ -80,6 +204,7 @@ fn ShellApp() {
     } else {
       queueMicrotask(applyEditorSync)
     }
+    return cleanup
   }, [])
 
   fn onSelect(path) {
@@ -139,6 +264,77 @@ fn ShellApp() {
     }
   }
 
+  fn applyPreset(presetName) {
+    let p = LAYOUT_PRESETS[presetName]
+    if (p === undefined || p === null) { return }
+    layoutRef.current = { leftWidth: p.leftWidth, terminalHeight: p.terminalHeight }
+    saveLayoutToStorage(p.leftWidth, p.terminalHeight)
+    let body = bodyRef !== null ? bodyRef.current : null
+    if (body !== null) {
+      body.style.setProperty("--left-width", String(p.leftWidth))
+      body.style.setProperty("--terminal-height", String(p.terminalHeight))
+    }
+  }
+
+  useLayoutEffect(() => {
+    let body = bodyRef !== null ? bodyRef.current : null
+    if (body === null) { return }
+    fn onResizeV(e) {
+      if (e.button !== 0) { return }
+      e.preventDefault()
+      let startX = e.clientX
+      let startLeft = layout.leftWidth
+      fn onMove(m) {
+        let rect = body.getBoundingClientRect()
+        let pct = ((m.clientX - rect.left) / rect.width) * 100
+        if (pct < 20) { pct = 20 }
+        if (pct > 80) { pct = 80 }
+        let cur = layoutRef.current
+        layoutRef.current = { leftWidth: pct, terminalHeight: cur.terminalHeight }
+        saveLayoutToStorage(pct, cur.terminalHeight)
+        body.style.setProperty("--left-width", String(pct))
+      }
+      fn onUp() {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+      }
+      document.addEventListener("mousemove", onMove)
+      document.addEventListener("mouseup", onUp)
+      document.body.style.cursor = "col-resize"
+      document.body.style.userSelect = "none"
+    }
+    fn onResizeH(e) {
+      if (e.button !== 0) { return }
+      e.preventDefault()
+      fn onMove(m) {
+        let rect = body.getBoundingClientRect()
+        let pct = ((m.clientY - rect.top) / rect.height) * 100
+        if (pct < 15) { pct = 15 }
+        if (pct > 85) { pct = 85 }
+        let cur = layoutRef.current
+        layoutRef.current = { leftWidth: cur.leftWidth, terminalHeight: pct }
+        saveLayoutToStorage(cur.leftWidth, pct)
+        body.style.setProperty("--terminal-height", String(pct))
+      }
+      fn onUp() {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+      }
+      document.addEventListener("mousemove", onMove)
+      document.addEventListener("mouseup", onUp)
+      document.body.style.cursor = "row-resize"
+      document.body.style.userSelect = "none"
+    }
+    let hv = body.querySelector(".pg-resize-v")
+    let hh = body.querySelector(".pg-resize-h")
+    if (hv !== null) { hv.onmousedown = onResizeV }
+    if (hh !== null) { hh.onmousedown = onResizeH }
+  }, [])
+
   fn handleRun() {
     let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
     let term = terminalApiRef !== null && terminalApiRef !== undefined ? terminalApiRef.current : null
@@ -165,9 +361,18 @@ fn ShellApp() {
   return <div class="pg-root">
     <header class="pg-header">
       <h1 class="pg-title">{"Tish playground"}</h1>
-      <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
+      <div class="pg-header__actions">
+        <div class="pg-layout-presets">
+          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("split")} title="Split layout">{"Split"}</button>
+          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("editor")} title="Editor focus">{"Editor"}</button>
+          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
+          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
+        </div>
+        <span class="pg-hotkeys" title="Ctrl/⌘+S Save · Ctrl/⌘+Enter Run · Ctrl/⌘+1-4 Tabs · Ctrl/⌘+Tab Switch tab">{"⌘S ⌘↵ ⌘1-4"}</span>
+        <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
+      </div>
     </header>
-    <div class="pg-body">
+    <div ref={bodyRef} class="pg-body" style={"--left-width: " + String(layoutRef.current.leftWidth) + "; --terminal-height: " + String(layoutRef.current.terminalHeight)}>
       <div class="pg-col pg-col--left">
         <div ref={filesPanelRef} class="pg-panel pg-panel--files">
           {FileBrowserPanel(paths, currentPath, onSelect)}
@@ -189,16 +394,18 @@ fn ShellApp() {
               </div>
             </div>
             <div class="pg-editor-chrome__body">
-              {EditorPanel(editorApiRef, currentContent, currentPath)}
+              {EditorPanel(editorApiRef, currentContent, currentPath, handleEditorKeydown)}
             </div>
           </div>
         </div>
       </div>
+      <div class="pg-resize-v" />
       <div class="pg-col pg-col--right">
-        <div class="pg-panel">
+        <div class="pg-panel pg-panel--terminal">
           {TerminalPanel(terminalApiRef)}
         </div>
-        <div class="pg-panel">
+        <div class="pg-resize-h" />
+        <div class="pg-panel pg-panel--preview">
           {WebPreviewPanel(previewApiRef, previewStateRef)}
         </div>
       </div>
