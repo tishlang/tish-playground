@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export PATH="${HOME}/.cargo/bin:${PATH:-}"
-
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
+export PATH="$PLAYGROUND_ROOT/node_modules/.bin:${HOME}/.cargo/bin:${PATH:-}"
 # TISH_ROOT: npm package (node_modules/@tishlang/tish) or local sibling (../tish). Override with env.
 NPM_TISH="$PLAYGROUND_ROOT/node_modules/@tishlang/tish"
 LOCAL_TISH="$(cd "$PLAYGROUND_ROOT/.." 2>/dev/null && pwd)/tish"
