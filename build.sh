@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
-export PATH="$PLAYGROUND_ROOT/node_modules/.bin:${HOME}/.cargo/bin:${PATH:-}"
+export PATH="${HOME}/.cargo/bin:$PLAYGROUND_ROOT/node_modules/.bin:${PATH:-}"
 # TISH_ROOT: npm package (node_modules/@tishlang/tish) or local sibling (../tish). Override with env.
 NPM_TISH="$PLAYGROUND_ROOT/node_modules/@tishlang/tish"
 LOCAL_TISH="$(cd "$PLAYGROUND_ROOT/.." 2>/dev/null && pwd)/tish"
@@ -14,12 +14,12 @@ else
   TISH_ROOT="${TISH_ROOT:-}"
 fi
 
-# tish CLI: prefer explicit path from npm package, else PATH
+# tish CLI: prefer ~/.cargo/bin/tish (from just install-full) over npm—local has latest JSX fixes
 TISH_CLI=""
-if [[ -f "$PLAYGROUND_ROOT/node_modules/.bin/tish" ]]; then
+if [[ -x "${HOME}/.cargo/bin/tish" ]]; then
+  TISH_CLI="${HOME}/.cargo/bin/tish"
+elif [[ -f "$PLAYGROUND_ROOT/node_modules/.bin/tish" ]]; then
   TISH_CLI="$PLAYGROUND_ROOT/node_modules/.bin/tish"
-elif command -v tish &>/dev/null; then
-  TISH_CLI="tish"
 fi
 if [[ -z "$TISH_CLI" ]]; then
   echo "Error: tish CLI not found"

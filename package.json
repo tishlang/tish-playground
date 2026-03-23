@@ -7,7 +7,7 @@
     "verify": "bash verify.sh"
   },
   "dependencies": {
-    "@tishlang/tish": "^1.0.26",
+    "@tishlang/tish": "^1.0.27",
     "lattish": "^1.0.6"
   }
 }

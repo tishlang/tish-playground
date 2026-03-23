@@ -1,22 +1,24 @@
 # Local `target/` for this repo (avoids shared sandbox target dirs).
 export CARGO_TARGET_DIR := justfile_directory() + "/target"
 
-# Path to the Tish compiler workspace (from @tishlang/tish npm package).
-TISH_ROOT := env_var_or_default("TISH_ROOT", justfile_directory() + "/node_modules/@tishlang/tish")
+# Local dev: ../tish must exist. Run `just install-full` in ../tish, then `just dev`.
+# CI/standalone: use build.sh (uses npm @tishlang/tish).
+TISH_ROOT := env_var_or_default("TISH_ROOT", justfile_directory() + "/../tish")
 
 default:
     @just --list
 
 # Lattish runtime for web preview iframe (prepended to user-compiled JS).
+# Uses `tish` from PATH (run `just install-full` in ../tish for fixed compiler).
 build-runtime:
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && npx tish compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js --jsx lattish
+    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js --jsx lattish
 
 # Compile playground UI (Tish → JS, --jsx lattish). Output to public/dist/.
 # Depends on build-runtime so web preview has Lattish in the iframe.
 build-app: build-runtime
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && npx tish compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx lattish
+    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx lattish
 
 # Build VM WASM (uses tish package's tish_wasm_runtime crate).
 build-vm:
