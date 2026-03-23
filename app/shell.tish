@@ -65,28 +65,27 @@ fn saveLayoutToStorage(leftWidth, terminalHeight) {
 fn loadEditorConfigFromStorage() {
   try {
     const raw = localStorage.getItem("tish-playground-editor-config")
-    if (!raw) { return { indentStyle: "2", lineComment: "//", useJsCompile: true, useJsx: true } }
+    if (!raw) { return { indentStyle: "2", lineComment: "//", webPreview: true } }
     let obj = JSON.parse(raw)
     let style = obj.indentStyle
     if (style !== "tab" && style !== "2" && style !== "4") { style = "2" }
+    let wp = obj.webPreview !== undefined ? obj.webPreview !== false : (obj.useJsCompile !== undefined ? obj.useJsCompile !== false : true)
     return {
       indentStyle: style,
       lineComment: obj.lineComment !== undefined ? obj.lineComment : "//",
-      useJsCompile: obj.useJsCompile !== false,
-      useJsx: obj.useJsx !== false
+      webPreview: wp
     }
   } catch (_) { }
-  return { indentStyle: "2", lineComment: "//", useJsCompile: true, useJsx: true }
+  return { indentStyle: "2", lineComment: "//", webPreview: true }
 }
 
 fn saveEditorConfigToStorage(updates) {
   try {
     let cur = loadEditorConfigFromStorage()
-    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment, useJsCompile: cur.useJsCompile, useJsx: cur.useJsx }
+    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment, webPreview: cur.webPreview }
     if (updates.indentStyle !== undefined) { merged.indentStyle = updates.indentStyle }
     if (updates.lineComment !== undefined) { merged.lineComment = updates.lineComment }
-    if (updates.useJsCompile !== undefined) { merged.useJsCompile = updates.useJsCompile }
-    if (updates.useJsx !== undefined) { merged.useJsx = updates.useJsx }
+    if (updates.webPreview !== undefined) { merged.webPreview = updates.webPreview }
     localStorage.setItem("tish-playground-editor-config", JSON.stringify(merged))
   } catch (_) { }
 }
@@ -121,12 +120,9 @@ fn ShellApp() {
   let runIdRef = useRef(0)
   let savedConfig = loadEditorConfigFromStorage()
   let editorConfigRef = useRef(savedConfig)
-  let useJsCompileState = useState(savedConfig.useJsCompile)
-  let useJsCompile = useJsCompileState[0]
-  let setUseJsCompile = useJsCompileState[1]
-  let useJsxState = useState(savedConfig.useJsx)
-  let useJsx = useJsxState[0]
-  let setUseJsx = useJsxState[1]
+  let webPreviewState = useState(savedConfig.webPreview)
+  let webPreview = webPreviewState[0]
+  let setWebPreview = webPreviewState[1]
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
   let currentContent = curEntry !== null ? curEntry.text : ""
 
@@ -150,7 +146,7 @@ fn ShellApp() {
     }
     btn.disabled = true
     btn.textContent = "Running…"
-    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef, runIdRef, useJsCompile, useJsx)
+    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef, runIdRef, webPreview)
   }
 
   fn handleEditorKeydown(e) {
@@ -391,8 +387,7 @@ fn ShellApp() {
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
-        <button type="button" class={useJsCompile ? "pg-toggle pg-toggle-on" : "pg-toggle"} onclick={() => { let v = !useJsCompile; setUseJsCompile(v); saveEditorConfigToStorage({ useJsCompile: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="Compile to JS and run in iframe">{"JS compile"}</button>
-        <button type="button" class={useJsx ? "pg-toggle pg-toggle-on" : "pg-toggle"} onclick={() => { let v = !useJsx; setUseJsx(v); saveEditorConfigToStorage({ useJsx: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="Compile with Lattish JSX">{"JSX"}</button>
+        <button type="button" class={webPreview ? "pg-toggle pg-toggle-lattish pg-toggle-on" : "pg-toggle pg-toggle-lattish"} onclick={() => { let v = !webPreview; setWebPreview(v); saveEditorConfigToStorage({ webPreview: v }); editorConfigRef.current = loadEditorConfigFromStorage() }} title="On: compile to JS with Lattish, run in web preview. Off: pure VM, console only.">{"Lattish DOM"}</button>
         <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
@@ -466,7 +461,7 @@ fn buildTishFilesMap(fileEntriesRef) {
   return JSON.stringify(map)
 }
 
-async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef, runIdRef, useJsCompile, useJsx) {
+async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef, runIdRef, webPreview) {
   try {
     terminal.clear()
     preview.setText("")
@@ -474,7 +469,7 @@ async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef,
     let cssEntry = fileEntriesRef !== null && fileEntriesRef !== undefined ? findEntry(fileEntriesRef.current, "web-preview.css") : null
     let cssContent = cssEntry !== null ? cssEntry.text : ""
     let filesJson = buildTishFilesMap(fileEntriesRef)
-    if (useJsCompile) {
+    if (webPreview) {
       try {
         let js = window.__tishCompileToJsWithImports(path, filesJson)
         let runtime = await getLattishRuntime()
