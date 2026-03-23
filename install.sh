@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install Node deps
+# Install Node deps (includes @tishlang/tish → tish CLI in node_modules/.bin)
 npm install
 
 # Rust: Vercel's Rust runtime (Cargo.toml + api/*.rs) provisions cargo at build time.

@@ -4,18 +4,27 @@ set -euo pipefail
 export PATH="${HOME}/.cargo/bin:${PATH:-}"
 
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
-# Use local tish repo (sibling of tish-playground) for WASM build; override with TISH_ROOT
-TISH_ROOT="${TISH_ROOT:-$(cd "$PLAYGROUND_ROOT/.." && pwd)/tish}"
+# TISH_ROOT: npm package (node_modules/@tishlang/tish) or local sibling (../tish). Override with env.
+NPM_TISH="$PLAYGROUND_ROOT/node_modules/@tishlang/tish"
+LOCAL_TISH="$(cd "$PLAYGROUND_ROOT/.." 2>/dev/null && pwd)/tish"
+if [[ -d "$NPM_TISH" ]]; then
+  TISH_ROOT="${TISH_ROOT:-$NPM_TISH}"
+elif [[ -d "$LOCAL_TISH" ]]; then
+  TISH_ROOT="${TISH_ROOT:-$LOCAL_TISH}"
+else
+  TISH_ROOT="${TISH_ROOT:-}"
+fi
 
+# tish CLI: from npm (node_modules/.bin) or PATH. npm run build adds node_modules/.bin automatically.
 if ! command -v tish &>/dev/null; then
   echo "Error: tish CLI not found in PATH"
-  echo "Install from local tish repo: cd ../tish && just install-full"
+  echo "Run: npm install (adds @tishlang/tish). Or for local dev: cd ../tish && just install-full"
   exit 1
 fi
 
 if [[ ! -d "$TISH_ROOT" ]]; then
-  echo "Error: Tish source not found at $TISH_ROOT (needed for WASM build)"
-  echo "Set TISH_ROOT to your local tish repo, or clone it as a sibling of tish-playground"
+  echo "Error: Tish source not found (needed for WASM build)"
+  echo "Install @tishlang/tish via npm install, or set TISH_ROOT to your local tish repo"
   exit 1
 fi
 
