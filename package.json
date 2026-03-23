@@ -2,12 +2,11 @@
   "name": "tish-playground",
   "private": true,
   "scripts": {
-    "build": "bash build.sh"
+    "build": "bash build.sh",
+    "install-tish": "cd ../tish && just install-full",
+    "verify": "bash verify.sh"
   },
   "dependencies": {
     "lattish": "^1.0.6"
-  },
-  "devDependencies": {
-    "@tishlang/tish": "^1.0.22"
   }
 }

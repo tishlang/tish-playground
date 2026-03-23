@@ -4,11 +4,18 @@ set -euo pipefail
 export PATH="${HOME}/.cargo/bin:${PATH:-}"
 
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
-TISH_ROOT="${TISH_ROOT:-$PLAYGROUND_ROOT/node_modules/@tishlang/tish}"
+# Use local tish repo (sibling of tish-playground) for WASM build; override with TISH_ROOT
+TISH_ROOT="${TISH_ROOT:-$(cd "$PLAYGROUND_ROOT/.." && pwd)/tish}"
+
+if ! command -v tish &>/dev/null; then
+  echo "Error: tish CLI not found in PATH"
+  echo "Install from local tish repo: cd ../tish && just install-full"
+  exit 1
+fi
 
 if [[ ! -d "$TISH_ROOT" ]]; then
-  echo "Error: Tish compiler not found at $TISH_ROOT"
-  echo "Run: npm install"
+  echo "Error: Tish source not found at $TISH_ROOT (needed for WASM build)"
+  echo "Set TISH_ROOT to your local tish repo, or clone it as a sibling of tish-playground"
   exit 1
 fi
 
@@ -16,12 +23,12 @@ mkdir -p "$PLAYGROUND_ROOT/public/dist"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PLAYGROUND_ROOT/target}"
 
 echo "Building Lattish runtime..."
-(cd "$PLAYGROUND_ROOT" && npx tish compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
+(cd "$PLAYGROUND_ROOT" && tish compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/lattish-runtime.js" \
   --target js --jsx lattish)
 
 echo "Building playground app..."
-(cd "$PLAYGROUND_ROOT" && npx tish compile "$PLAYGROUND_ROOT/app/main.tish" \
+(cd "$PLAYGROUND_ROOT" && tish compile "$PLAYGROUND_ROOT/app/main.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/playground.js" \
   --target js --jsx lattish)
 

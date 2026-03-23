@@ -18,6 +18,8 @@ Minimal web playground: **UI in Tish** (compiled to JS), **user code** compiled 
 - `rustup target add wasm32-unknown-unknown`
 - Sibling checkout of **Tish** (default: `../tish`). Override with `TISH_ROOT`.
 
+**Local Tish development**: The playground uses the local tish repo (not npm). After pulling tish changes, run `npm run install-tish` to reinstall the CLI, then `npm run verify` to confirm JSX text (e.g. `<h1>Web preview works!</h1>`) compiles correctly.
+
 ## Build & run
 
 ```bash

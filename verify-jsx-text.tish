@@ -1,0 +1,2 @@
+// Minimal test: raw JSX text with ! and emoji
+fn App() { return <h1>Web preview works! 😔</h1> }
