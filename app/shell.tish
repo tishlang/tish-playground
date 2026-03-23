@@ -77,6 +77,18 @@ fn saveRunOptsToStorage(useJsCompile, useJsx) {
   localStorage.setItem(RUN_OPTS_STORAGE_KEY, JSON.stringify({ useJsCompile, useJsx }))
 }
 
+fn loadEditorConfigFromStorage() {
+  try {
+    const raw = localStorage.getItem("tish-playground-editor-config")
+    if (!raw) { return { indentStyle: "2", lineComment: "//" } }
+    let obj = JSON.parse(raw)
+    let style = obj.indentStyle
+    if (style !== "tab" && style !== "2" && style !== "4") { style = "2" }
+    return { indentStyle: style, lineComment: obj.lineComment !== undefined ? obj.lineComment : "//" }
+  } catch (_) { }
+  return { indentStyle: "2", lineComment: "//" }
+}
+
 fn ShellApp() {
   const mainEntry = { path: "main.tish", text: "// main.tish — primary entry (Lattish app). Styles from web-preview.css.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit main.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
   const webEntry = { path: "web.tish", text: "// web.tish — console example\nconsole.log(\"Hello, playground\")\n" }
@@ -105,6 +117,7 @@ fn ShellApp() {
   let previewStateRef = useRef(null)
   let runButtonRef = useRef(null)
   let runIdRef = useRef(0)
+  let editorConfigRef = useRef(loadEditorConfigFromStorage())
   let savedRunOpts = loadRunOptsFromStorage()
   let useJsCompileState = useState(savedRunOpts.useJsCompile)
   let useJsCompile = useJsCompileState[0]
@@ -410,7 +423,7 @@ fn ShellApp() {
               </div>
             </div>
             <div class="pg-editor-chrome-body">
-              {EditorPanel(editorApiRef, currentContent, currentPath, handleEditorKeydown)}
+              {EditorPanel(editorApiRef, currentContent, currentPath, handleEditorKeydown, editorConfigRef.current)}
             </div>
           </div>
         </div>

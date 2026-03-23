@@ -230,17 +230,20 @@ body {
   flex: 2;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
-/* Editor chrome (code block style) */
+/* Editor chrome (code block style) — fills 100% of panel */
 .pg-editor-chrome {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  margin: 0.5rem;
+  border: none;
+  border-radius: 0;
+  margin: 0;
   transition: border-color 0.2s;
 }
 
@@ -346,13 +349,14 @@ body {
   font-weight: 600;
 }
 
-/* Editor with line numbers */
+/* Editor with line numbers — fills 100% of chrome body */
 .pg-editor {
   position: relative;
   flex: 1;
-  min-height: 12rem;
+  min-height: 0;
   overflow: hidden;
   display: flex;
+  height: 100%;
 }
 
 .pg-editor__gutter {
@@ -379,6 +383,7 @@ body {
   flex: 1;
   position: relative;
   min-width: 0;
+  min-height: 0;
 }
 
 .pg-editor__highlight {
@@ -399,7 +404,7 @@ body {
   position: absolute;
   inset: 0;
   width: 100%;
-  min-height: 12rem;
+  height: 100%;
   resize: none;
   padding: 0.6rem;
   border: none;
