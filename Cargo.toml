@@ -1,0 +1,18 @@
+# Minimal Rust API to trigger Vercel's Rust runtime (provides cargo/rustup at build time).
+# The playground is static; this exists only so our build.sh can use the Rust toolchain
+# to compile WASM (tish_vm, tish_compiler) from node_modules/@tishlang/tish.
+
+[package]
+name = "tish-playground"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vercel_runtime = { version = "2" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[[bin]]
+name = "health"
+path = "api/health.rs"

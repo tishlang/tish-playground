@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PATH="${HOME}/.cargo/bin:${PATH:-}"
+
 PLAYGROUND_ROOT="$(cd "$(dirname "$0")" && pwd)"
 TISH_ROOT="${TISH_ROOT:-$PLAYGROUND_ROOT/node_modules/@tishlang/tish}"
 
