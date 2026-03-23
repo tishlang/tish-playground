@@ -8,6 +8,7 @@ import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
 import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
 const STORAGE_KEY = "tish-playground-files"
 const LAYOUT_STORAGE_KEY = "tish-playground-layout"
+const RUN_OPTS_STORAGE_KEY = "tish-playground-run-opts"
 
 fn findEntry(entries, path) {
   for (let e of entries) {
@@ -62,11 +63,25 @@ fn saveLayoutToStorage(leftWidth, terminalHeight) {
   localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ leftWidth, terminalHeight }))
 }
 
+fn loadRunOptsFromStorage() {
+  try {
+    const raw = localStorage.getItem(RUN_OPTS_STORAGE_KEY)
+    if (!raw) { return { useJsCompile: true, useJsx: true } }
+    let obj = JSON.parse(raw)
+    return { useJsCompile: obj.useJsCompile !== false, useJsx: obj.useJsx !== false }
+  } catch (_) { }
+  return { useJsCompile: true, useJsx: true }
+}
+
+fn saveRunOptsToStorage(useJsCompile, useJsx) {
+  localStorage.setItem(RUN_OPTS_STORAGE_KEY, JSON.stringify({ useJsCompile, useJsx }))
+}
+
 fn ShellApp() {
-  const mainEntry = { path: "main.tish", text: "// main.tish\nconsole.log(\"Hello, playground\")\n" }
-  const webEntry = { path: "web.tish", text: "// WEB EXAMPLE — Lattish. Run to see output in the Web preview.\n// Styles come from web-preview.css (editable in the file list).\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit web.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
+  const mainEntry = { path: "main.tish", text: "// main.tish — primary entry (Lattish app). Styles from web-preview.css.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit main.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + String(count)}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
+  const webEntry = { path: "web.tish", text: "// web.tish — console example\nconsole.log(\"Hello, playground\")\n" }
   const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
-  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (user's Lattish app runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (default web.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
+  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (main.tish runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (main.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
   let initialEntries = [mainEntry, webEntry, libEntry, cssEntry]
   loadFilesFromStorage(initialEntries)
   let fileEntriesRef = useRef(initialEntries)
@@ -89,6 +104,14 @@ fn ShellApp() {
   let previewApiRef = useRef(null)
   let previewStateRef = useRef(null)
   let runButtonRef = useRef(null)
+  let runIdRef = useRef(0)
+  let savedRunOpts = loadRunOptsFromStorage()
+  let useJsCompileState = useState(savedRunOpts.useJsCompile)
+  let useJsCompile = useJsCompileState[0]
+  let setUseJsCompile = useJsCompileState[1]
+  let useJsxState = useState(savedRunOpts.useJsx)
+  let useJsx = useJsxState[0]
+  let setUseJsx = useJsxState[1]
   let curEntry = findEntry(fileEntriesRef.current, currentPath)
   let currentContent = curEntry !== null ? curEntry.text : ""
 
@@ -106,13 +129,13 @@ fn ShellApp() {
     let runPath = currentPathRef.current
     let runSrc = cur.text
     if (currentPathRef.current === "web-preview.css") {
-      runPath = "web.tish"
-      let webCur = findEntry(fileEntriesRef.current, "web.tish")
-      runSrc = webCur !== null ? webCur.text : ""
+      runPath = "main.tish"
+      let mainCur = findEntry(fileEntriesRef.current, "main.tish")
+      runSrc = mainCur !== null ? mainCur.text : ""
     }
     btn.disabled = true
     btn.textContent = "Running…"
-    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef)
+    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef, runIdRef, useJsCompile, useJsx)
   }
 
   fn handleEditorKeydown(e) {
@@ -206,6 +229,20 @@ fn ShellApp() {
     document.addEventListener("mousemove", onMove)
     document.addEventListener("mouseup", onUp)
   }
+
+  useLayoutEffect(() => {
+    fn onMessage(ev) {
+      let d = ev.data
+      if (d !== null && d !== undefined && typeof d === "object" && d.type === "tish-console") {
+        let term = terminalApiRef !== null ? terminalApiRef.current : null
+        if (term !== null && d.id === runIdRef.current) {
+          term.appendLine(d.line !== undefined ? d.line : "")
+        }
+      }
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
 
   useLayoutEffect(() => {
     fn onKeydown(e) {
@@ -339,6 +376,14 @@ fn ShellApp() {
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
+        <label class="pg-check">
+          <input type="checkbox" checked={useJsCompile} onchange={(e) => { let v = e.target.checked; setUseJsCompile(v); saveRunOptsToStorage(v, useJsx) }} />
+          <span>{"JS compile"}</span>
+        </label>
+        <label class="pg-check">
+          <input type="checkbox" checked={useJsx} onchange={(e) => { let v = e.target.checked; setUseJsx(v); saveRunOptsToStorage(useJsCompile, v) }} />
+          <span>{"JSX"}</span>
+        </label>
         <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
@@ -412,38 +457,40 @@ fn buildTishFilesMap(fileEntriesRef) {
   return JSON.stringify(map)
 }
 
-async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef) {
+async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef, runIdRef, useJsCompile, useJsx) {
   try {
     terminal.clear()
     preview.setText("")
+    runIdRef.current = runIdRef.current + 1
     let cssEntry = fileEntriesRef !== null && fileEntriesRef !== undefined ? findEntry(fileEntriesRef.current, "web-preview.css") : null
     let cssContent = cssEntry !== null ? cssEntry.text : ""
-    let lines = []
-    let isWeb = path === "web.tish"
     let filesJson = buildTishFilesMap(fileEntriesRef)
-    if (!isWeb) {
+    if (useJsCompile) {
+      try {
+        let js = window.__tishCompileToJsWithImports(path, filesJson)
+        let runtime = await getLattishRuntime()
+        let jsWithRuntime = runtime + "\n" + js
+        preview.runJs(jsWithRuntime, cssContent, runIdRef.current)
+      } catch (e) {
+        terminal.appendLine("JS compile error: " + String(e))
+        preview.setText(String(e))
+      }
+    } else {
       try {
         let b64 = window.__tishCompileToBytecodeWithImports(path, filesJson)
         const bytes = window.__tishDecodeB64(b64)
-        lines = window.__tishVmRunCaptured(bytes)
+        let lines = window.__tishVmRunCaptured(bytes)
         let i = 0
         while (i < lines.length) {
           terminal.appendLine(lines[i])
           i = i + 1
         }
+        preview.setVmModeNotice()
       } catch (e) {
         terminal.appendLine("Bytecode compile error:")
         terminal.appendLine(String(e))
+        preview.setText(String(e))
       }
-    }
-    try {
-      let js = window.__tishCompileToJsWithImports(path, filesJson)
-      let runtime = await getLattishRuntime()
-      let jsWithRuntime = runtime + "\n" + js
-      preview.runJs(jsWithRuntime, cssContent)
-    } catch (e) {
-      terminal.appendLine("JS compile error: " + String(e))
-      preview.setText(String(e))
     }
   } catch (e) {
     terminal.appendLine("Error: " + e)

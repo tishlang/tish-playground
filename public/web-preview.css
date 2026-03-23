@@ -7,7 +7,7 @@ body {
   color: #e6e9ed;
 }
 
-/* Example app box (default web.tish uses class="box") */
+/* Example app box (main.tish uses class="box") */
 .box {
   border: 2px solid #3d8bfd;
   border-radius: 8px;

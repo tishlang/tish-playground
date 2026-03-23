@@ -93,6 +93,23 @@ body {
   border-color: var(--muted-foreground);
 }
 
+.pg-check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.pg-check input {
+  cursor: pointer;
+}
+
+.pg-check:hover {
+  color: var(--foreground);
+}
+
 .pg-hotkeys {
   font-size: 0.7rem;
   color: var(--muted-foreground);

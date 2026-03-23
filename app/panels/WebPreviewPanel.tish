@@ -19,8 +19,10 @@ export fn WebPreviewPanel(apiRef, stateRef) {
       } else {
         preRef.current.style.display = "none"
         preRef.current.textContent = ""
-        iframeRef.current.style.display = "block"
-        let safe = st.js.split("</script>").join("<\\/script>")
+        let runId = st.runId !== undefined && st.runId !== null ? st.runId : 0
+        let bridge = "(function(){var id=" + String(runId) + ";['log','warn','error'].forEach(function(l){var o=console[l];console[l]=function(){var s=Array.prototype.map.call(arguments,function(x){return String(x)}).join(' ');try{parent.postMessage({type:'tish-console',id:id,level:l,line:s},'*')}catch(e){}o.apply(console,arguments)}})}());"
+        let userJs = st.js !== undefined ? st.js : ""
+        let safe = (bridge + "\n" + userJs).split("</script>").join("<\\/script>")
         let html = ""
         if (st.css !== undefined && st.css !== null && st.css !== "") {
           let cssEsc = st.css.split("</style>").join("<\\/style>")
@@ -31,6 +33,8 @@ export fn WebPreviewPanel(apiRef, stateRef) {
           html = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><link rel=\"stylesheet\" href=\"" + cssHref + "\"></head><body><script>" + safe + "</script></body></html>"
         }
         iframeRef.current.srcdoc = html
+        iframeRef.current.style.display = "block"
+        preRef.current.style.display = "none"
       }
     }
     apiRef.current = {
@@ -39,8 +43,13 @@ export fn WebPreviewPanel(apiRef, stateRef) {
         if (stateRef) { stateRef.current = st }
         apply(st)
       },
-      runJs: (js, cssContent) => {
-        let st = { err: false, js: js !== undefined ? js : "", css: cssContent !== undefined && cssContent !== null ? cssContent : "" }
+      runJs: (js, cssContent, runId) => {
+        let st = { err: false, js: js !== undefined ? js : "", css: cssContent !== undefined && cssContent !== null ? cssContent : "", runId: runId !== undefined && runId !== null ? runId : 0 }
+        if (stateRef) { stateRef.current = st }
+        apply(st)
+      },
+      setVmModeNotice: () => {
+        let st = { err: true, txt: "Console only (VM mode)" }
         if (stateRef) { stateRef.current = st }
         apply(st)
       }
