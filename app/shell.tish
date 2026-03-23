@@ -47,6 +47,8 @@ fn ShellApp() {
   let currentPath = currentPathRef.current
   let paths = ["main.tish", "web.tish", "lib.tish", "web-preview.css"]
   let filesPanelRef = useRef(null)
+  let editorFilenameRef = useRef(null)
+  let editorTabsRef = useRef(null)
 
   let editorApiRef = useRef(null)
   let terminalApiRef = useRef(null)
@@ -118,6 +120,23 @@ fn ShellApp() {
         j = j + 1
       }
     }
+    let fnEl = editorFilenameRef !== null && editorFilenameRef !== undefined ? editorFilenameRef.current : null
+    if (fnEl !== null) { fnEl.textContent = path }
+    let tabsEl = editorTabsRef !== null && editorTabsRef !== undefined ? editorTabsRef.current : null
+    if (tabsEl !== null) {
+      let tabBtns = tabsEl.querySelectorAll(".pg-editor-chrome__tab")
+      let k = 0
+      while (k < tabBtns.length) {
+        let tb = tabBtns[k]
+        let sel = tb.textContent === path
+        if (sel) {
+          tb.classList.add("pg-editor-chrome__tab--active")
+        } else {
+          tb.classList.remove("pg-editor-chrome__tab--active")
+        }
+        k = k + 1
+      }
+    }
   }
 
   fn handleRun() {
@@ -154,7 +173,25 @@ fn ShellApp() {
           {FileBrowserPanel(paths, currentPath, onSelect)}
         </div>
         <div class="pg-panel pg-panel--editor">
-          {EditorPanel(editorApiRef, currentContent, currentPath)}
+          <div class="pg-editor-chrome">
+            <div class="pg-editor-chrome__header">
+              <div class="pg-editor-chrome__dots">
+                <div class="pg-editor-chrome__dot" />
+                <div class="pg-editor-chrome__dot" />
+                <div class="pg-editor-chrome__dot" />
+              </div>
+              <span ref={editorFilenameRef} class="pg-editor-chrome__filename">{currentPath}</span>
+              <div ref={editorTabsRef} class="pg-editor-chrome__tabs">
+                <button type="button" class={currentPath === "main.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("main.tish")}>{"main.tish"}</button>
+                <button type="button" class={currentPath === "web.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("web.tish")}>{"web.tish"}</button>
+                <button type="button" class={currentPath === "lib.tish" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("lib.tish")}>{"lib.tish"}</button>
+                <button type="button" class={currentPath === "web-preview.css" ? "pg-editor-chrome__tab pg-editor-chrome__tab--active" : "pg-editor-chrome__tab"} onclick={() => onSelect("web-preview.css")}>{"web-preview.css"}</button>
+              </div>
+            </div>
+            <div class="pg-editor-chrome__body">
+              {EditorPanel(editorApiRef, currentContent, currentPath)}
+            </div>
+          </div>
         </div>
       </div>
       <div class="pg-col pg-col--right">

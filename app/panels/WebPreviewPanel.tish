@@ -50,7 +50,7 @@ export fn WebPreviewPanel(apiRef, stateRef) {
   }, [mountKeyRef.current])
   return <div class="pg-preview">
     <div class="pg-preview__label">{"Web preview"}</div>
-    <pre ref={preRef} class="pg-preview__body pg-preview__fallback" />
+    <pre ref={preRef} class="pg-preview__body pg-preview__fallback scrollbar-thin" />
     <iframe ref={iframeRef} class="pg-preview__iframe" sandbox="allow-scripts allow-same-origin" />
   </div>
 }

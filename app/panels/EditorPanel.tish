@@ -7,8 +7,33 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
   let wrapperRef = useRef(null)
   let taRef = useRef(null)
   let highlightRef = useRef(null)
+  let gutterRef = useRef(null)
   let scheduledRef = useRef(null)
   let pathRef = useRef(filePath !== undefined && filePath !== null ? filePath : "main.tish")
+
+  fn countLines(text) {
+    if (text === undefined || text === null || text === "") { return 1 }
+    let n = 1
+    let i = 0
+    while (i < text.length) {
+      if (text.charAt(i) === "\n") { n = n + 1 }
+      i = i + 1
+    }
+    return n
+  }
+
+  fn updateGutter(text) {
+    let g = gutterRef !== null && gutterRef !== undefined ? gutterRef.current : null
+    if (g === null) { return }
+    let n = countLines(text)
+    let nums = []
+    let i = 1
+    while (i <= n) {
+      nums.push(String(i))
+      i = i + 1
+    }
+    g.textContent = nums.join("\n")
+  }
 
   fn updateHighlight(text) {
     let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
@@ -16,6 +41,7 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
     if (hi !== null && text !== undefined) {
       hi.innerHTML = highlightToHtml(text, path)
     }
+    updateGutter(text)
   }
 
   fn scheduleHighlight() {
@@ -33,9 +59,13 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
   fn syncScroll() {
     let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
     let ta = taRef !== null && taRef !== undefined ? taRef.current : null
+    let g = gutterRef !== null && gutterRef !== undefined ? gutterRef.current : null
     if (hi !== null && ta !== null) {
       hi.scrollTop = ta.scrollTop
       hi.scrollLeft = ta.scrollLeft
+    }
+    if (g !== null && ta !== null) {
+      g.scrollTop = ta.scrollTop
     }
   }
 
@@ -67,7 +97,10 @@ export fn EditorPanel(apiRef, initialContent, filePath) {
   }, [initialContent, filePath])
 
   return <div ref={wrapperRef} class="pg-editor">
-    <div class="pg-editor__highlight" ref={highlightRef} />
-    <textarea ref={taRef} class="pg-editor__textarea" spellcheck="false" rows="24" />
+    <div ref={gutterRef} class="pg-editor__gutter scrollbar-thin" />
+    <div class="pg-editor__content">
+      <div class="pg-editor__highlight scrollbar-thin" ref={highlightRef} />
+      <textarea ref={taRef} class="pg-editor__textarea scrollbar-thin" spellcheck="false" rows="24" />
+    </div>
   </div>
 }

@@ -19,6 +19,6 @@ export fn TerminalPanel(apiRef) {
   }, [])
   return <div class="pg-terminal">
     <div class="pg-terminal__label">{"Console"}</div>
-    <pre ref={outRef} class="pg-terminal__out" />
+    <pre ref={outRef} class="pg-terminal__out scrollbar-thin" />
   </div>
 }

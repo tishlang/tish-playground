@@ -1,10 +1,21 @@
+/* Tishlang-aligned dark theme (OKLCH). Matches tishlang-web globals.css + theme-override. */
 :root {
+  --theme-accent: oklch(0.72 0.18 295);
+  --background: oklch(0.11 0 0);
+  --foreground: oklch(0.90 0 0);
+  --card: oklch(0.14 0 0);
+  --secondary: oklch(0.18 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --border: oklch(0.22 0 0);
+  --primary: var(--theme-accent);
+  --chart-4: oklch(0.75 0.1 80);
+
+  /* Fallbacks for older browsers */
   --bg: #0f1114;
   --surface: #161a20;
-  --border: #2a3139;
   --text: #e6e9ed;
-  --muted: #8b949e;
-  --accent: #3d8bfd;
+  --accent: #a78bfa;
 }
 
 * {
@@ -15,10 +26,10 @@ html,
 body {
   margin: 0;
   height: 100%;
-  font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 13px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .pg-root {
@@ -33,7 +44,7 @@ body {
   justify-content: space-between;
   padding: 0.65rem 1rem;
   border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--card);
 }
 
 .pg-title {
@@ -47,10 +58,10 @@ body {
   font-family: inherit;
   font-size: 0.85rem;
   padding: 0.35rem 0.9rem;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 4px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--primary);
+  color: oklch(0.11 0 0);
   cursor: pointer;
 }
 
@@ -103,13 +114,96 @@ body {
 
 .pg-panel--editor {
   flex: 2;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Editor chrome (code block style) */
+.pg-editor-chrome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin: 0.5rem;
+  transition: border-color 0.2s;
+}
+
+.pg-editor-chrome:hover {
+  border-color: oklch(0.72 0.18 295 / 0.2);
+}
+
+.pg-editor-chrome__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.pg-editor-chrome__dots {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pg-editor-chrome__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+  opacity: 0.2;
+}
+
+.pg-editor-chrome__filename {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-left: 0.25rem;
+}
+
+.pg-editor-chrome__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.pg-editor-chrome__tab {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.pg-editor-chrome__tab:hover {
+  color: var(--foreground);
+}
+
+.pg-editor-chrome__tab--active {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.pg-editor-chrome__body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .pg-files__title {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 0.35rem;
 }
 
@@ -124,24 +218,53 @@ body {
   border: none;
   border-radius: 3px;
   background: transparent;
-  color: var(--text);
+  color: var(--foreground);
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .pg-files__item:hover {
-  background: rgba(61, 139, 253, 0.12);
+  background: oklch(0.72 0.18 295 / 0.12);
 }
 
 .pg-files__item--selected {
-  background: rgba(61, 139, 253, 0.2);
+  background: oklch(0.72 0.18 295 / 0.2);
   font-weight: 600;
 }
 
+/* Editor with line numbers */
 .pg-editor {
   position: relative;
   flex: 1;
   min-height: 12rem;
   overflow: hidden;
+  display: flex;
+}
+
+.pg-editor__gutter {
+  flex-shrink: 0;
+  padding: 0.6rem 0.5rem 0.6rem 0.6rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre;
+  text-align: right;
+  color: var(--muted-foreground);
+  user-select: none;
+  min-width: 2.5rem;
+  scrollbar-width: none;
+}
+
+.pg-editor__gutter::-webkit-scrollbar {
+  display: none;
+}
+
+.pg-editor__content {
+  flex: 1;
+  position: relative;
+  min-width: 0;
 }
 
 .pg-editor__highlight {
@@ -149,15 +272,13 @@ body {
   inset: 0;
   padding: 0.6rem;
   overflow: auto;
-  font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.85rem;
   line-height: 1.45;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  color: var(--text);
+  white-space: pre;
+  word-wrap: normal;
+  color: var(--foreground);
   pointer-events: none;
-  border: 1px solid transparent;
-  border-radius: 4px;
 }
 
 .pg-editor__textarea {
@@ -167,35 +288,59 @@ body {
   min-height: 12rem;
   resize: none;
   padding: 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: none;
   background: transparent;
   color: transparent;
-  caret-color: var(--text);
-  font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+  caret-color: var(--foreground);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.85rem;
   line-height: 1.45;
+  white-space: pre;
 }
 
 .pg-editor__textarea::selection {
-  background: rgba(61, 139, 253, 0.35);
+  background: oklch(0.72 0.18 295 / 0.35);
 }
 
-/* Syntax highlighting tokens (tish-vscode–aligned) */
-.hl-comment { color: var(--muted); font-style: italic; }
-.hl-string { color: #7ee787; }
-.hl-keyword { color: #ff7b72; }
-.hl-storage { color: #79c0ff; }
-.hl-literal { color: #79c0ff; }
-.hl-type { color: #d2a8ff; }
-.hl-number { color: #79c0ff; }
-.hl-operator { color: var(--muted); }
-.hl-ident { color: var(--text); }
-.hl-punctuation { color: var(--muted); }
-.hl-tag { color: #7ee787; }
-.hl-selector-id { color: #79c0ff; }
-.hl-selector-class { color: #d2a8ff; }
-.hl-color { color: #79c0ff; }
+/* Syntax highlighting — tishlang style: primary (keywords), primary/70 (strings), chart-4 (types/numbers), muted (comments/ops) */
+.hl-comment { color: var(--muted-foreground); opacity: 0.5; font-style: italic; }
+.hl-string { color: var(--primary); opacity: 0.7; }
+.hl-keyword { color: var(--primary); }
+.hl-storage { color: var(--primary); }
+.hl-literal { color: var(--primary); }
+.hl-type { color: var(--chart-4); }
+.hl-number { color: var(--chart-4); }
+.hl-operator { color: var(--muted-foreground); }
+.hl-ident { color: var(--foreground); }
+.hl-punctuation { color: var(--muted-foreground); }
+.hl-tag { color: var(--primary); opacity: 0.7; }
+.hl-selector-id { color: var(--chart-4); }
+.hl-selector-class { color: var(--chart-4); }
+.hl-color { color: var(--chart-4); }
+
+/* Thin scrollbars (tishlang scrollbar-thin) */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.35 0 0) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: oklch(0.35 0 0);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.45 0 0);
+}
 
 .pg-terminal {
   flex: 1;
@@ -208,7 +353,7 @@ body {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 0.35rem;
 }
 
@@ -217,10 +362,10 @@ body {
   margin: 0;
   padding: 0.5rem;
   overflow: auto;
-  background: #0b0d10;
+  background: var(--background);
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: inherit;
   font-size: 0.8rem;
   white-space: pre-wrap;
@@ -238,7 +383,7 @@ body {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--muted);
+  color: var(--muted-foreground);
   margin-bottom: 0.35rem;
   flex-shrink: 0;
 }
@@ -250,14 +395,14 @@ body {
   min-height: 4rem;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: #0b0d10;
+  background: var(--background);
 }
 
 .pg-preview__body {
   margin: 0;
   padding: 0.5rem;
   overflow: auto;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: inherit;
   font-size: 0.8rem;
   white-space: pre-wrap;
