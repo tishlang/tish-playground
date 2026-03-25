@@ -6,7 +6,7 @@ All panels are **Lattish components** under [`app/panels/`](app/panels/). They u
 
 | Module | Export | Responsibility |
 |--------|--------|----------------|
-| [`EditorPanel.tish`](app/panels/EditorPanel.tish) | `EditorPanel(apiRef)` | Textarea editor; fills `apiRef.current` with `{ getContent, setContent, setOnBlur }` |
+| [`EditorPanel.tish`](app/panels/EditorPanel.tish) | `EditorPanel(apiRef)` | Textarea + highlight; undo/redo (⌘/Ctrl+Z, ⇧⌘Z / Ctrl+Y); `apiRef.current` = `{ getContent, setContent, setOnBlur }` |
 | [`TerminalPanel.tish`](app/panels/TerminalPanel.tish) | `TerminalPanel(apiRef)` | Console output; fills `apiRef.current` with `{ appendLine, clear }` |
 | [`FileBrowserPanel.tish`](app/panels/FileBrowserPanel.tish) | `FileBrowserPanel(paths, currentPath, onSelect)` | File list with selection |
 | [`WebPreviewPanel.tish`](app/panels/WebPreviewPanel.tish) | `WebPreviewPanel(apiRef)` | Iframe + fallback pre; fills `apiRef.current` with `{ setText, runJs }` |

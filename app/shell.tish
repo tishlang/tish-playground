@@ -399,7 +399,7 @@ fn ShellApp() {
           <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
         </div>
         <button type="button" class={webPreview ? "pg-toggle pg-toggle-lattish pg-toggle-on" : "pg-toggle pg-toggle-lattish"} onclick={() => { let v = !webPreview; setWebPreview(v); saveWebPreviewToStorage(v) }} title="On: compile to JS with Lattish, run in web preview. Off: pure VM, console only.">{"Lattish DOM"}</button>
-        <span class="pg-hotkeys" title="Ctrl+S Save, Ctrl+Enter Run">{"⌘S ⌘↵"}</span>
+        <span class="pg-hotkeys" title="Save / Run / Undo / Redo">{"⌘S ⌘↵ · ⌘Z ⇧⌘Z"}</span>
         <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
       </div>
     </header>

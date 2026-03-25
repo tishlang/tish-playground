@@ -12,13 +12,13 @@ default:
 # Uses `tish` from PATH (run `just install-full` in ../tish for fixed compiler).
 build-runtime:
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js --jsx lattish
+    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js 
 
 # Compile playground UI (Tish → JS, --jsx lattish). Output to public/dist/.
 # Depends on build-runtime so web preview has Lattish in the iframe.
 build-app: build-runtime
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js --jsx lattish
+    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js
 
 # Build VM WASM (uses tish package's tish_wasm_runtime crate).
 build-vm:

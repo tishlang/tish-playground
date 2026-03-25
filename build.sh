@@ -39,12 +39,12 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PLAYGROUND_ROOT/target}"
 echo "Building Lattish runtime..."
 (cd "$PLAYGROUND_ROOT" && "$TISH_CLI" compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/lattish-runtime.js" \
-  --target js --jsx lattish)
+  --target js)
 
 echo "Building playground app..."
 (cd "$PLAYGROUND_ROOT" && "$TISH_CLI" compile "$PLAYGROUND_ROOT/app/main.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/playground.js" \
-  --target js --jsx lattish)
+  --target js)
 
 echo "Building WASM VM..."
 (cd "$TISH_ROOT/crates/tish_wasm_runtime" && cargo build --target wasm32-unknown-unknown --release --features browser)

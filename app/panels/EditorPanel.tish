@@ -1,8 +1,12 @@
 // Editor panel with syntax highlighting overlay. Modular, minimal, written in Tish.
 // Supports Tab indent (configurable), multi-line operations, duplicate/delete/toggle comment.
+// Undo/redo: ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z or ⌘/Ctrl+Y (beforeinput batches typing ~350ms).
 // Passes onKeydown for shell hotkeys when editor shortcuts don't apply.
 
 import { useRef, useLayoutEffect } from "lattish"
+
+const MAX_UNDO = 200
+const TX_GAP_MS = 350
 import { highlightToHtml } from "../highlight/TishHighlight.tish"
 
 const EDITOR_CONFIG_KEY = "tish-playground-editor-config"
@@ -119,12 +123,23 @@ fn toggleLineComment(lines, lineStart, lineEnd, prefix) {
   return true
 }
 
+fn editorSnapshot(ta) {
+  return { v: ta.value, a: ta.selectionStart, b: ta.selectionEnd }
+}
+
+fn applySnapshot(ta, s) {
+  ta.value = s.v
+  ta.selectionStart = s.a
+  ta.selectionEnd = s.b
+}
+
 export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig) {
   let wrapperRef = useRef(null)
   let taRef = useRef(null)
   let highlightRef = useRef(null)
   let gutterRef = useRef(null)
   let scheduledRef = useRef(null)
+  let historyRef = useRef(null)
   let pathRef = useRef(filePath !== undefined && filePath !== null ? filePath : "main.tish")
   let config = editorConfig !== null && editorConfig !== undefined ? editorConfig : loadEditorConfig()
 
@@ -191,9 +206,59 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
     let ta = taRef !== null && taRef !== undefined ? taRef.current : null
     let hi = highlightRef !== null && highlightRef !== undefined ? highlightRef.current : null
     if (ta !== null && hi !== null) {
+      let H = historyRef.current
+      if (H === null || H === undefined) {
+        H = { undo: [], redo: [], lastTx: 0 }
+        historyRef.current = H
+      }
+      H.undo = []
+      H.redo = []
+      H.lastTx = 0
       if (initialContent !== undefined && initialContent !== null) {
         ta.value = initialContent
         updateHighlight(initialContent)
+      }
+      fn pushUndoPoint(ta, H) {
+        let s = editorSnapshot(ta)
+        if (H.undo.length > 0) {
+          let top = H.undo[H.undo.length - 1]
+          if (top.v === s.v && top.a === s.a && top.b === s.b) { return }
+        }
+        H.undo.push(s)
+        if (H.undo.length > MAX_UNDO) { H.undo.shift() }
+        H.redo = []
+      }
+      fn maybePushTypingUndo(ta, H, e) {
+        if (e.isComposing) { return }
+        let now = Date.now()
+        if (now - H.lastTx > TX_GAP_MS) {
+          pushUndoPoint(ta, H)
+        }
+        H.lastTx = now
+      }
+      fn doUndo(ta, H) {
+        if (H.undo.length === 0) { return }
+        let cur = editorSnapshot(ta)
+        H.redo.push(cur)
+        let prev = H.undo.pop()
+        applySnapshot(ta, prev)
+        H.lastTx = 0
+        scheduleHighlight()
+        updateGutter(ta.value)
+      }
+      fn doRedo(ta, H) {
+        if (H.redo.length === 0) { return }
+        let cur = editorSnapshot(ta)
+        H.undo.push(cur)
+        if (H.undo.length > MAX_UNDO) { H.undo.shift() }
+        let next = H.redo.pop()
+        applySnapshot(ta, next)
+        H.lastTx = 0
+        scheduleHighlight()
+        updateGutter(ta.value)
+      }
+      ta.onbeforeinput = (e) => {
+        maybePushTypingUndo(ta, H, e)
       }
       ta.oninput = () => {
         scheduleHighlight()
@@ -210,7 +275,20 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
         let lineEnd = range.lineEnd
         let lines = range.lines
 
+        if (mod && e.key === "z" && !e.shiftKey) {
+          e.preventDefault()
+          doUndo(ta, H)
+          return
+        }
+        if (mod && (e.key === "y" || (e.key === "z" && e.shiftKey) || (e.key === "Z" && e.shiftKey))) {
+          e.preventDefault()
+          doRedo(ta, H)
+          return
+        }
+
         if (e.key === "Tab" && !mod) {
+          pushUndoPoint(ta, H)
+          H.lastTx = Date.now()
           e.preventDefault()
           let indentStr = getIndentString(config)
           if (e.shiftKey) {
@@ -245,6 +323,8 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
 
         if (mod && e.key === "d" && !e.shiftKey) {
           e.preventDefault()
+          pushUndoPoint(ta, H)
+          H.lastTx = Date.now()
           let dup = []
           let k = lineStart
           while (k <= lineEnd) {
@@ -288,6 +368,8 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
 
         if (mod && e.shiftKey && e.key === "K") {
           e.preventDefault()
+          pushUndoPoint(ta, H)
+          H.lastTx = Date.now()
           let beforeLines = []
           let k = 0
           while (k < lineStart) {
@@ -317,6 +399,8 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
 
         if (mod && e.key === "/" && !e.shiftKey) {
           e.preventDefault()
+          pushUndoPoint(ta, H)
+          H.lastTx = Date.now()
           let path = pathRef !== null ? pathRef.current : "main.tish"
           let prefix = config.lineComment !== undefined ? config.lineComment : getCommentPrefix(path)
           if (toggleLineComment(lines, lineStart, lineEnd, prefix)) {
@@ -337,6 +421,12 @@ export fn EditorPanel(apiRef, initialContent, filePath, onKeydown, editorConfig)
           setContent: (t, path) => {
             ta.value = t !== undefined && t !== null ? t : ""
             if (path !== undefined && path !== null) { pathRef.current = path }
+            let h = historyRef.current
+            if (h !== null && h !== undefined) {
+              h.undo = []
+              h.redo = []
+              h.lastTx = 0
+            }
             updateHighlight(ta.value)
           },
           setOnBlur: (callback) => { ta.onblur = callback }
