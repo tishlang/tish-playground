@@ -17,7 +17,7 @@ fn contentType(path) {
 }
 
 fn isBinary(path) {
-  path.endsWith(".wasm")
+  return path.endsWith(".wasm")
 }
 
 fn filePath(reqPath) {

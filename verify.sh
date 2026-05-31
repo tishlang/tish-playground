@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Verify that the local tish compiler handles raw JSX text (e.g. "Web preview works!").
+# JSX support is built into `tish build --target js` — no extra flag required.
 # Run after: npm run install-tish && npm run build
 set -euo pipefail
 
@@ -14,7 +15,7 @@ fi
 echo "Verifying JSX text: <h1>Web preview works!</h1>"
 outfile="$PLAYGROUND_ROOT/public/dist/.verify-out.js"
 mkdir -p "$(dirname "$outfile")"
-tish compile "$PLAYGROUND_ROOT/verify-jsx-text.tish" -o "$outfile" --target js --jsx lattish 2>&1
+tish build "$PLAYGROUND_ROOT/verify-jsx-text.tish" -o "$outfile" --target js 2>&1
 
 if grep -q '"Web preview works!' "$outfile" && grep -q '😔' "$outfile"; then
   echo "OK: Raw JSX text compiles correctly"

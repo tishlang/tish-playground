@@ -1,519 +1,180 @@
-// Playground shell: Lattish createRoot + ShellApp (JSX).
-// Uses hooks and CSS; avoids imperative DOM/style manipulation.
+// Tish playground shell.
+//
+// All of the editor / files / terminal / preview / layout / persistence /
+// hotkeys / share / open-in-new-window logic lives in `SandboxIde` inside
+// `tish-ide-panels`, so this file is just the playground's "preset": the
+// default file contents, the localStorage namespace, and a tiny Examples
+// menu that loads curated starter sandboxes.
+//
+// History: the bulk of this file (~460 lines of layout, persistence, file
+// tabs, hotkey bridges and the postMessage console pipe) was extracted into
+// `tish-ide-panels/src/SandboxIde.tish` so tish-learn and tish-ide can mount
+// the same component without copying or vendoring it.
+//
+// Codepen-style sharing:
+//   - Click "↗ Share" → a paste-able URL with the current files encoded in
+//     `#share=…` is copied to the clipboard. Anyone opening that URL gets the
+//     same sandbox in their browser, no backend.
+//   - Click "⌬ Embed" → an `<iframe src="…?embed=1#share=…">` snippet is
+//     copied so the sandbox can be embedded in any blog / doc.
+//   - When opened with `#share=…`, the visitor sees the shared sandbox
+//     unmodified; their local edits don't persist until they hit "⑂ Fork",
+//     which writes to localStorage and clears the URL.
 
 import { createRoot, useState, useRef, useLayoutEffect } from "lattish"
-import { EditorPanel } from "./panels/EditorPanel.tish"
-import { TerminalPanel } from "./panels/TerminalPanel.tish"
-import { FileBrowserPanel } from "./panels/FileBrowserPanel.tish"
-import { WebPreviewPanel } from "./panels/WebPreviewPanel.tish"
-const STORAGE_KEY = "tish-playground-files"
-const LAYOUT_STORAGE_KEY = "tish-playground-layout"
-const WEB_PREVIEW_STORAGE_KEY = "tish-playground-web-preview"
+import { SandboxIde, isEmbedRequested } from "tish-ide-panels"
 
-fn findEntry(entries, path) {
-  for (let e of entries) {
-    if (e.path === path) return e
+const DEFAULT_FILES = [
+  {
+    path: "main.tish",
+    text: "// main.tish — primary entry (Lattish app). Styles from web-preview.css.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit main.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + count}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n"
+  },
+  {
+    path: "lib.tish",
+    text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n"
+  },
+  {
+    path: "web-preview.css",
+    text: "/* Base styles for web preview iframe (main.tish runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (main.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n"
   }
-  return null
-}
+]
 
-fn loadFilesFromStorage(fileEntries) {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) { return }
-  const obj = JSON.parse(raw)
-  for (let e of fileEntries) {
-    if (obj[e.path] !== undefined && obj[e.path] !== null) {
-      e.text = obj[e.path]
-    }
-  }
-}
-
-fn saveFilesToStorage(fileEntries) {
-  const obj = {}
-  for (let e of fileEntries) {
-    obj[e.path] = e.text
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(obj))
-}
-
-const LAYOUT_PRESETS = {
-  split: { leftWidth: 50, terminalHeight: 50 },
-  editor: { leftWidth: 70, terminalHeight: 40 },
-  output: { leftWidth: 40, terminalHeight: 55 },
-  stacked: { leftWidth: 65, terminalHeight: 25 }
-}
-
-fn loadLayoutFromStorage() {
-  try {
-    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY)
-    if (!raw) { return null }
-    let obj = JSON.parse(raw)
-    if (obj.leftWidth !== undefined && obj.terminalHeight !== undefined) {
-      let lw = obj.leftWidth
-      let th = obj.terminalHeight
-      if (typeof lw === "number" && lw >= 20 && lw <= 80 && typeof th === "number" && th >= 15 && th <= 85) {
-        return { leftWidth: lw, terminalHeight: th }
+// Curated starter sandboxes. Each entry is a "load this preset" menu item
+// in the Examples dropdown; selecting one replaces the editor contents and
+// kicks the user into a fresh local sandbox (clears any #share= URL so the
+// fork-style "shared" badge doesn't stick around).
+const EXAMPLES = [
+  {
+    id: "default",
+    label: "Counter (default)",
+    files: DEFAULT_FILES,
+    kind: "ide",
+    cssEntryPath: "web-preview.css"
+  },
+  {
+    id: "hello",
+    label: "Hello, console",
+    kind: "console",
+    cssEntryPath: null,
+    files: [
+      { path: "main.tish", text: "console.log(\"Hello from Tish!\")\nconsole.log(\"Run again to re-execute.\")\n" }
+    ]
+  },
+  {
+    id: "fizzbuzz",
+    label: "FizzBuzz",
+    kind: "console",
+    cssEntryPath: null,
+    files: [
+      { path: "main.tish", text: "let i = 1\nwhile (i <= 15) {\n  let line = \"\"\n  if (i % 15 === 0) { line = \"FizzBuzz\" }\n  else if (i % 3 === 0) { line = \"Fizz\" }\n  else if (i % 5 === 0) { line = \"Buzz\" }\n  else { line = String(i) }\n  console.log(line)\n  i = i + 1\n}\n" }
+    ]
+  },
+  {
+    id: "todo",
+    label: "Tiny todo (Lattish)",
+    kind: "ide",
+    cssEntryPath: "web-preview.css",
+    files: [
+      {
+        path: "main.tish",
+        text: "if (typeof document !== \"undefined\") {\n  fn App() {\n    let textState = useState(\"\")\n    let listState = useState([])\n    let text = textState[0]\n    let setText = textState[1]\n    let list = listState[0]\n    let setList = listState[1]\n    fn add() {\n      if (text.trim() === \"\") { return }\n      setList(list.concat([text]))\n      setText(\"\")\n    }\n    let items = []\n    let i = 0\n    while (i < list.length) {\n      items.push(<li>{list[i]}</li>)\n      i = i + 1\n    }\n    return <div class=\"todo\">\n      <h1>{\"Todo\"}</h1>\n      <input value={text} oninput={(e) => setText(e.target.value)} placeholder=\"Add an item\" />\n      <button onclick={add}>{\"Add\"}</button>\n      <ul>{items}</ul>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n"
+      },
+      {
+        path: "web-preview.css",
+        text: ".todo { font-family: sans-serif; padding: 1rem; max-width: 24rem; }\n.todo h1 { margin: 0 0 0.75rem 0; font-size: 1.2rem; }\n.todo input { padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; margin-right: 0.4rem; }\n.todo button { padding: 0.4rem 0.9rem; border-radius: 4px; border: 1px solid #ccc; cursor: pointer; }\n.todo ul { padding-left: 1.25rem; }\n"
       }
-    }
-  } catch (_) { }
-  return null
-}
-
-fn saveLayoutToStorage(leftWidth, terminalHeight) {
-  localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ leftWidth, terminalHeight }))
-}
-
-fn loadWebPreviewFromStorage() {
-  try {
-    const raw = localStorage.getItem(WEB_PREVIEW_STORAGE_KEY)
-    if (!raw) { return true }
-    return JSON.parse(raw) !== false
-  } catch (_) { }
-  return true
-}
-
-fn saveWebPreviewToStorage(value) {
-  localStorage.setItem(WEB_PREVIEW_STORAGE_KEY, JSON.stringify(value))
-}
-
-fn loadEditorConfigFromStorage() {
-  try {
-    const raw = localStorage.getItem("tish-playground-editor-config")
-    if (!raw) { return { indentStyle: "2", lineComment: "//" } }
-    let obj = JSON.parse(raw)
-    let style = obj.indentStyle
-    if (style !== "tab" && style !== "2" && style !== "4") { style = "2" }
-    return { indentStyle: style, lineComment: obj.lineComment !== undefined ? obj.lineComment : "//" }
-  } catch (_) { }
-  return { indentStyle: "2", lineComment: "//" }
-}
-
-fn saveEditorConfigToStorage(updates) {
-  try {
-    let cur = loadEditorConfigFromStorage()
-    let merged = { indentStyle: cur.indentStyle, lineComment: cur.lineComment }
-    if (updates.indentStyle !== undefined) { merged.indentStyle = updates.indentStyle }
-    if (updates.lineComment !== undefined) { merged.lineComment = updates.lineComment }
-    localStorage.setItem("tish-playground-editor-config", JSON.stringify(merged))
-  } catch (_) { }
-}
-
-fn ShellApp() {
-  const mainEntry = { path: "main.tish", text: "// main.tish — primary entry (Lattish app). Styles from web-preview.css.\nif (typeof document !== \"undefined\") {\n  fn App() {\n    let countState = useState(0)\n    let count = countState[0]\n    let setCount = countState[1]\n    return <div class=\"box\">\n      <h1>{\"Web preview works!\"}</h1>\n      <p>{\"This is rendered by Lattish. Edit main.tish and Run to change this.\"}</p>\n      <button type=\"button\" onclick={() => setCount(count + 1)}>{\"Count: \" + count}</button>\n    </div>\n  }\n  createRoot(document.body).render(App)\n}\n" }
-  const libEntry = { path: "lib.tish", text: "// lib.tish — second buffer\nconsole.log(\"Hello from lib.tish\")\n" }
-  const cssEntry = { path: "web-preview.css", text: "/* Base styles for web preview iframe (main.tish runs here). */\nbody {\n  margin: 0;\n  font-family: sans-serif;\n  padding: 1rem;\n  background: #1a1d23;\n  color: #e6e9ed;\n}\n\n/* Example app box (main.tish uses class=\"box\") */\n.box {\n  border: 2px solid #3d8bfd;\n  border-radius: 8px;\n  padding: 1.5rem;\n  max-width: 20rem;\n}\n\n.box h1 {\n  margin: 0 0 0.5rem 0;\n  font-size: 1.25rem;\n}\n\n.box p {\n  margin: 0;\n  font-size: 0.9rem;\n  opacity: 0.9;\n}\n" }
-  let initialEntries = [mainEntry, libEntry, cssEntry]
-  loadFilesFromStorage(initialEntries)
-  let fileEntriesRef = useRef(initialEntries)
-
-  let currentPathRef = useRef("main.tish")
-  let currentPath = currentPathRef.current
-  let paths = ["main.tish", "lib.tish", "web-preview.css"]
-  let filesPanelRef = useRef(null)
-  let editorFilenameRef = useRef(null)
-  let editorTabsRef = useRef(null)
-
-  let savedLayout = loadLayoutFromStorage()
-  let defaultLeft = savedLayout !== null ? savedLayout.leftWidth : 50
-  let defaultTerm = savedLayout !== null ? savedLayout.terminalHeight : 50
-  let layoutRef = useRef({ leftWidth: defaultLeft, terminalHeight: defaultTerm })
-
-  let bodyRef = useRef(null)
-  let editorApiRef = useRef(null)
-  let terminalApiRef = useRef(null)
-  let previewApiRef = useRef(null)
-  let previewStateRef = useRef(null)
-  let runButtonRef = useRef(null)
-  let runIdRef = useRef(0)
-  let savedConfig = loadEditorConfigFromStorage()
-  let editorConfigRef = useRef(savedConfig)
-  let webPreviewState = useState(true)
-  let webPreview = webPreviewState[0]
-  let setWebPreview = webPreviewState[1]
-  let curEntry = findEntry(fileEntriesRef.current, currentPath)
-  let currentContent = curEntry !== null ? curEntry.text : ""
-
-  fn handleRun() {
-    let editor = editorApiRef !== null ? editorApiRef.current : null
-    let term = terminalApiRef !== null ? terminalApiRef.current : null
-    let prev = previewApiRef !== null ? previewApiRef.current : null
-    let btn = runButtonRef !== null ? runButtonRef.current : null
-    if (editor === null || term === null || prev === null || btn === null) { return }
-    if (btn.disabled) { return }
-    let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-    if (cur === null) { return }
-    cur.text = editor.getContent()
-    saveFilesToStorage(fileEntriesRef.current)
-    let runPath = currentPathRef.current
-    let runSrc = cur.text
-    if (currentPathRef.current === "web-preview.css") {
-      runPath = "main.tish"
-      let mainCur = findEntry(fileEntriesRef.current, "main.tish")
-      runSrc = mainCur !== null ? mainCur.text : ""
-    }
-    btn.disabled = true
-    btn.textContent = "Running…"
-    runCompileAndExec(runSrc, runPath, term, prev, runButtonRef, fileEntriesRef, runIdRef, webPreview)
+    ]
   }
+]
 
-  fn handleEditorKeydown(e) {
-    let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
-    let mod = isMac ? e.metaKey : e.ctrlKey
-    if (!mod) { return }
-    if (e.key === "s") {
-      e.preventDefault()
-      let editor = editorApiRef !== null ? editorApiRef.current : null
-      if (editor !== null) {
-        let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-        if (cur !== null) {
-          cur.text = editor.getContent()
-          saveFilesToStorage(fileEntriesRef.current)
-        }
-      }
-      return
-    }
-    if (e.key === "Enter") {
-      e.preventDefault()
-      handleRun()
-      return
-    }
-    if (e.key >= "1" && e.key <= "3") {
-      e.preventDefault()
-      let idx = parseInt(e.key, 10) - 1
-      let p = ["main.tish", "lib.tish", "web-preview.css"]
-      if (idx >= 0 && idx < p.length) { onSelect(p[idx]) }
-      return
-    }
-    if (e.key === "Tab") {
-      e.preventDefault()
-      let paths = ["main.tish", "lib.tish", "web-preview.css"]
-      let cur = currentPathRef.current
-      let idx = -1
-      let i = 0
-      while (i < paths.length) {
-        if (paths[i] === cur) { idx = i; break }
-        i = i + 1
-      }
-      if (e.shiftKey) {
-        idx = idx <= 0 ? paths.length - 1 : idx - 1
-      } else {
-        idx = idx >= paths.length - 1 ? 0 : idx + 1
-      }
-      onSelect(paths[idx])
-      return
-    }
-  }
-
-  fn startResizeV(e) {
-    if (e.button !== 0) { return }
-    e.preventDefault()
-    let body = bodyRef.current
-    if (body === null) { return }
-    fn onMove(m) {
-      let rect = body.getBoundingClientRect()
-      let pct = ((m.clientX - rect.left) / rect.width) * 100
-      if (pct < 20) { pct = 20 }
-      if (pct > 80) { pct = 80 }
-      layoutRef.current = { leftWidth: pct, terminalHeight: layoutRef.current.terminalHeight }
-      saveLayoutToStorage(pct, layoutRef.current.terminalHeight)
-      body.style.setProperty("--left-width", String(pct))
-    }
-    fn onUp() {
-      document.removeEventListener("mousemove", onMove)
-      document.removeEventListener("mouseup", onUp)
-    }
-    document.addEventListener("mousemove", onMove)
-    document.addEventListener("mouseup", onUp)
-  }
-
-  fn startResizeH(e) {
-    if (e.button !== 0) { return }
-    e.preventDefault()
-    let body = bodyRef.current
-    if (body === null) { return }
-    fn onMove(m) {
-      let rect = body.getBoundingClientRect()
-      let pct = ((rect.bottom - m.clientY) / rect.height) * 100
-      if (pct < 15) { pct = 15 }
-      if (pct > 85) { pct = 85 }
-      layoutRef.current = { leftWidth: layoutRef.current.leftWidth, terminalHeight: pct }
-      saveLayoutToStorage(layoutRef.current.leftWidth, pct)
-      body.style.setProperty("--terminal-height", String(pct))
-    }
-    fn onUp() {
-      document.removeEventListener("mousemove", onMove)
-      document.removeEventListener("mouseup", onUp)
-    }
-    document.addEventListener("mousemove", onMove)
-    document.addEventListener("mouseup", onUp)
-  }
+fn ExamplesMenu(props) {
+  let openState = useState(false)
+  let open = openState[0]
+  let setOpen = openState[1]
+  let containerRef = useRef(null)
 
   useLayoutEffect(() => {
-    setWebPreview(loadWebPreviewFromStorage())
+    fn onDocClick(e) {
+      let host = containerRef.current
+      if (host === null) { return }
+      if (host.contains(e.target)) { return }
+      setOpen(false)
+    }
+    document.addEventListener("click", onDocClick)
+    return () => document.removeEventListener("click", onDocClick)
   }, [])
 
-  useLayoutEffect(() => {
-    fn onMessage(ev) {
-      let d = ev.data
-      if (d !== null && d !== undefined && typeof d === "object" && d.type === "tish-console") {
-        let term = terminalApiRef !== null ? terminalApiRef.current : null
-        if (term !== null && d.id === runIdRef.current) {
-          term.appendLine(d.line !== undefined ? d.line : "")
-        }
-      }
-    }
-    window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
-  }, [])
-
-  useLayoutEffect(() => {
-    fn onKeydown(e) {
-      let isMac = typeof navigator !== "undefined" && navigator.platform !== undefined && navigator.platform.toUpperCase().indexOf("MAC") >= 0
-      let mod = isMac ? e.metaKey : e.ctrlKey
-      if (!mod) { return }
-      if (e.key === "s") {
-        e.preventDefault()
-        let editor = editorApiRef !== null ? editorApiRef.current : null
-        if (editor !== null) {
-          let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-          if (cur !== null) {
-            cur.text = editor.getContent()
-            saveFilesToStorage(fileEntriesRef.current)
-          }
-        }
-      } else if (e.key === "Enter") {
-        e.preventDefault()
-        handleRun()
-      }
-    }
-    document.addEventListener("keydown", onKeydown)
-    return () => document.removeEventListener("keydown", onKeydown)
-  }, [])
-
-  useLayoutEffect(() => {
-    let body = bodyRef.current
-    if (body !== null) {
-      body.style.setProperty("--left-width", String(layoutRef.current.leftWidth))
-      body.style.setProperty("--terminal-height", String(layoutRef.current.terminalHeight))
-    }
-    fn applyEditorSync() {
-      let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-      if (editor === null || editor === undefined) { return }
-      let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-      if (cur !== null) { editor.setContent(cur.text, currentPathRef.current) }
-      fn saveCurrentFile() {
-        let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-        let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-        if (cur !== null && ed !== null) {
-          cur.text = ed.getContent()
-          saveFilesToStorage(fileEntriesRef.current)
-        }
-      }
-      editor.setOnBlur(saveCurrentFile)
-    }
-    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-    if (editor !== null && editor !== undefined) {
-      applyEditorSync()
-    } else {
-      queueMicrotask(applyEditorSync)
-    }
-  }, [])
-
-  fn onSelect(path) {
-    let editor = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-    if (editor !== null && editor !== undefined) {
-      let cur = findEntry(fileEntriesRef.current, currentPathRef.current)
-      if (cur !== null) {
-        cur.text = editor.getContent()
-        saveFilesToStorage(fileEntriesRef.current)
-      }
-    }
-    currentPathRef.current = path
-    let cur = findEntry(fileEntriesRef.current, path)
-    if (editor !== null && cur !== null) {
-      editor.setContent(cur.text, path)
-      fn saveCurrentFile() {
-        let c = findEntry(fileEntriesRef.current, currentPathRef.current)
-        let ed = editorApiRef !== null && editorApiRef !== undefined ? editorApiRef.current : null
-        if (c !== null && ed !== null) {
-          c.text = ed.getContent()
-          saveFilesToStorage(fileEntriesRef.current)
-        }
-      }
-      editor.setOnBlur(saveCurrentFile)
-    }
-    let panel = filesPanelRef !== null && filesPanelRef !== undefined ? filesPanelRef.current : null
-    if (panel !== null) {
-      let btns = panel.querySelectorAll(".pg-files-item")
-      let j = 0
-      while (j < btns.length) {
-        let btn = btns[j]
-        let selected = btn.textContent === path
-        if (selected) {
-          btn.classList.add("pg-files-item-selected")
-        } else {
-          btn.classList.remove("pg-files-item-selected")
-        }
-        j = j + 1
-      }
-    }
-    let fnEl = editorFilenameRef !== null && editorFilenameRef !== undefined ? editorFilenameRef.current : null
-    if (fnEl !== null) { fnEl.textContent = path }
-    let tabsEl = editorTabsRef !== null && editorTabsRef !== undefined ? editorTabsRef.current : null
-    if (tabsEl !== null) {
-      let tabBtns = tabsEl.querySelectorAll(".pg-editor-chrome-tab")
-      let k = 0
-      while (k < tabBtns.length) {
-        let tb = tabBtns[k]
-        let sel = tb.textContent === path
-        if (sel) {
-          tb.classList.add("pg-editor-chrome-tab-active")
-        } else {
-          tb.classList.remove("pg-editor-chrome-tab-active")
-        }
-        k = k + 1
-      }
-    }
+  let items = []
+  let i = 0
+  while (i < EXAMPLES.length) {
+    let ex = EXAMPLES[i]
+    items.push(<button class="pg-examples-item" onclick={() => { setOpen(false); props.onPick(ex) }}>{ex.label}</button>)
+    i = i + 1
   }
 
-  fn applyPreset(presetName) {
-    let p = LAYOUT_PRESETS[presetName]
-    if (p === undefined || p === null) { return }
-    layoutRef.current = { leftWidth: p.leftWidth, terminalHeight: p.terminalHeight }
-    saveLayoutToStorage(p.leftWidth, p.terminalHeight)
-    let body = bodyRef.current
-    if (body !== null) {
-      body.style.setProperty("--left-width", String(p.leftWidth))
-      body.style.setProperty("--terminal-height", String(p.terminalHeight))
+  return <div ref={containerRef} class="pg-examples">
+    <button class="pg-toggle pg-examples-trigger" onclick={() => setOpen(!open)} title="Load a starter sandbox">{"≡ Examples"}</button>
+    {open ? <div class="pg-examples-menu">{items}</div> : null}
+  </div>
+}
+
+fn ShellApp(props) {
+  // The Examples menu mounts SandboxIde with a different `key` on each pick
+  // so the component remounts cleanly with the new files (and the share-load
+  // logic inside re-runs against the same URL — but we clear the hash before
+  // setting a new key, so it doesn't bounce back to share mode).
+  let presetState = useState(EXAMPLES[0])
+  let preset = presetState[0]
+  let setPreset = presetState[1]
+  let mountKeyState = useState(0)
+  let mountKey = mountKeyState[0]
+  let setMountKey = mountKeyState[1]
+
+  fn pickExample(ex) {
+    if (typeof history !== "undefined" && history.replaceState !== undefined && typeof location !== "undefined") {
+      try {
+        history.replaceState(null, "", String(location.origin) + String(location.pathname))
+      } catch (_) { }
     }
+    setPreset(ex)
+    setMountKey(mountKey + 1)
   }
 
-  return <div class="pg-root">
-    <header class="pg-header">
-      <h1 class="pg-title">{"Tish playground"}</h1>
-      <div class="pg-header-actions">
-        <div class="pg-layout-presets">
-          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("split")} title="Split layout">{"Split"}</button>
-          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("editor")} title="Editor focus">{"Editor"}</button>
-          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("output")} title="Output focus">{"Output"}</button>
-          <button type="button" class="pg-layout-btn" onclick={() => applyPreset("stacked")} title="Stacked">{"Stacked"}</button>
+  let embed = props.embed === true
+  let mode = embed ? "embed" : "full"
+  let storageKey = embed ? null : "tish-playground"
+
+  return <div class="pg-playground-root">
+    {!embed
+      ? <div class="pg-toolbar-top">
+          <ExamplesMenu onPick={pickExample} />
         </div>
-        <button type="button" class={webPreview ? "pg-toggle pg-toggle-lattish pg-toggle-on" : "pg-toggle pg-toggle-lattish"} onclick={() => { let v = !webPreview; setWebPreview(v); saveWebPreviewToStorage(v) }} title="On: compile to JS with Lattish, run in web preview. Off: pure VM, console only.">{"Lattish DOM"}</button>
-        <span class="pg-hotkeys" title="Save / Run / Undo / Redo">{"⌘S ⌘↵ · ⌘Z ⇧⌘Z"}</span>
-        <button ref={runButtonRef} type="button" class="pg-run" onclick={handleRun}>{"Run"}</button>
-      </div>
-    </header>
-    <div ref={bodyRef} class="pg-body">
-      <div class="pg-col pg-col-left">
-        <div ref={filesPanelRef} class="pg-panel pg-panel-files">
-          {FileBrowserPanel(paths, currentPath, onSelect)}
-        </div>
-        <div class="pg-panel pg-panel-editor">
-          <div class="pg-editor-chrome">
-            <div class="pg-editor-chrome-header">
-              <div class="pg-editor-chrome-dots">
-                <div class="pg-editor-chrome-dot" />
-                <div class="pg-editor-chrome-dot" />
-                <div class="pg-editor-chrome-dot" />
-              </div>
-              <span ref={editorFilenameRef} class="pg-editor-chrome-filename">{currentPath}</span>
-              <div ref={editorTabsRef} class="pg-editor-chrome-tabs">
-                <button type="button" class={currentPath === "main.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("main.tish")}>{"main.tish"}</button>
-                <button type="button" class={currentPath === "lib.tish" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("lib.tish")}>{"lib.tish"}</button>
-                <button type="button" class={currentPath === "web-preview.css" ? "pg-editor-chrome-tab pg-editor-chrome-tab-active" : "pg-editor-chrome-tab"} onclick={() => onSelect("web-preview.css")}>{"web-preview.css"}</button>
-              </div>
-            </div>
-            <div class="pg-editor-chrome-body">
-              {EditorPanel(editorApiRef, currentContent, currentPath, handleEditorKeydown, editorConfigRef.current)}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="pg-resize-v" role="separator" ariaOrientation="vertical" onmousedown={startResizeV} />
-      <div class="pg-col pg-col-right">
-        <div class="pg-panel pg-panel-preview">
-          {WebPreviewPanel(previewApiRef, previewStateRef)}
-        </div>
-        <div class="pg-resize-h" role="separator" ariaOrientation="horizontal" onmousedown={startResizeH} />
-        <div class="pg-panel pg-panel-terminal">
-          {TerminalPanel(terminalApiRef)}
-        </div>
-      </div>
+      : null}
+    <div class="pg-playground-mount" key={String(mountKey)}>
+      {SandboxIde({
+        files: preset.files,
+        entryPath: "main.tish",
+        kind: preset.kind,
+        cssEntryPath: preset.cssEntryPath,
+        mode: mode,
+        storageKey: storageKey,
+        title: "Tish playground",
+        enableShare: true,
+        enableNewWindow: !embed,
+        loadShareFromUrl: true
+      })}
     </div>
   </div>
 }
 
 export fn mountShell(root) {
-  root.className = "pg-root"
-  createRoot(root).render(ShellApp)
-}
-
-let lattishRuntimeCache = null
-
-async fn getLattishRuntime() {
-  if (lattishRuntimeCache !== null) { return lattishRuntimeCache }
-  const res = await fetch("/dist/lattish-runtime.js")
-  lattishRuntimeCache = await res.text()
-  return lattishRuntimeCache
-}
-
-fn buildTishFilesMap(fileEntriesRef) {
-  let entries = fileEntriesRef !== null && fileEntriesRef !== undefined ? fileEntriesRef.current : []
-  let map = {}
-  let i = 0
-  while (i < entries.length) {
-    let e = entries[i]
-    if (e.path.endsWith(".tish")) {
-      map[e.path] = e.text
-    }
-    i = i + 1
+  if (root === null || root === undefined) { return }
+  let embed = isEmbedRequested()
+  if (embed) {
+    root.className = "pg-root pg-embed-host"
+  } else {
+    root.className = "pg-root"
   }
-  return JSON.stringify(map)
-}
-
-async fn runCompileAndExec(src, path, terminal, preview, onDone, fileEntriesRef, runIdRef, webPreview) {
-  try {
-    terminal.clear()
-    preview.setText("")
-    runIdRef.current = runIdRef.current + 1
-    let cssEntry = fileEntriesRef !== null && fileEntriesRef !== undefined ? findEntry(fileEntriesRef.current, "web-preview.css") : null
-    let cssContent = cssEntry !== null ? cssEntry.text : ""
-    let filesJson = buildTishFilesMap(fileEntriesRef)
-    if (webPreview) {
-      try {
-        let js = window.__tishCompileToJsWithImports(path, filesJson)
-        let runtime = await getLattishRuntime()
-        let jsWithRuntime = runtime + "\n" + js
-        preview.runJs(jsWithRuntime, cssContent, runIdRef.current)
-      } catch (e) {
-        terminal.appendLine("JS compile error: " + String(e))
-        preview.setText(String(e))
-      }
-    } else {
-      try {
-        let b64 = window.__tishCompileToBytecodeWithImports(path, filesJson)
-        const bytes = window.__tishDecodeB64(b64)
-        let lines = window.__tishVmRunCaptured(bytes)
-        let i = 0
-        while (i < lines.length) {
-          terminal.appendLine(lines[i])
-          i = i + 1
-        }
-        preview.setVmModeNotice()
-      } catch (e) {
-        terminal.appendLine("Bytecode compile error:")
-        terminal.appendLine(String(e))
-        preview.setText(String(e))
-      }
-    }
-  } catch (e) {
-    terminal.appendLine("Error: " + e)
-    preview.setText("Error: " + e)
-  } finally {
-    let btn = onDone !== null && onDone !== undefined ? onDone.current : null
-    if (btn !== null) {
-      btn.disabled = false
-      btn.textContent = "Run"
-    }
-  }
+  fn App() { return ShellApp({ embed: embed }) }
+  createRoot(root).render(App)
 }

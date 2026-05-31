@@ -13,8 +13,8 @@ This document outlines how to deploy the playground (and future crate consumers)
 | Artifact | Crate(s) | Feature flags | Notes |
 |----------|----------|---------------|-------|
 | Tish CLI (compile) | `tish` | (default) | Compiles `.tish` → JS |
-| lattish-runtime.js | `tish` | (default) | Output of `tish compile web-runtime.tish` |
-| playground.js | `tish` | (default) | Output of `tish compile main.tish` |
+| lattish-runtime.js | `tish` | (default) | Output of `tish build web-runtime.tish` |
+| playground.js | `tish` | (default) | Output of `tish build main.tish` |
 | tish_vm.wasm | `tish_wasm_runtime` | `browser` | `tish_vm/wasm` transitively |
 | tish_compiler.wasm | `tish_compiler_wasm` | (none) | Parse + bytecode + JS in browser |
 
@@ -118,11 +118,11 @@ To avoid building Rust on Vercel:
    - `tish` CLI binary (Linux x86_64)
    - `tish_vm_bg.wasm` + `tish_vm.js`
    - `tish_compiler_bg.wasm` + `tish_compiler.js`
-   - `tish compile` output for `web-runtime.tish` and `main.tish`
+   - `tish build` output for `web-runtime.tish` and `main.tish`
 
 2. **Publish**: As GitHub Release assets or to a CDN/S3.
 
-3. **Vercel installCommand**: Download artifacts; `build.sh` only runs `tish compile` (if CLI is used) or copies pre-built JS/WASM.
+3. **Vercel installCommand**: Download artifacts; `build.sh` only runs `tish build` (if CLI is used) or copies pre-built JS/WASM.
 
 Tradeoff: faster Vercel builds, but two-step release (tish release → playground download).
 

@@ -12,13 +12,25 @@ default:
 # Uses `tish` from PATH (run `just install-full` in ../tish for fixed compiler).
 build-runtime:
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js 
+    cd "{{ justfile_directory() }}" && tish build "{{ justfile_directory() }}/app/web-runtime.tish" -o "{{ justfile_directory() }}/public/dist/lattish-runtime.js" --target js 
 
-# Compile playground UI (Tish → JS, --jsx lattish). Output to public/dist/.
-# Depends on build-runtime so web preview has Lattish in the iframe.
-build-app: build-runtime
+# Sync panels.css from the tish-ide-panels package to public/playground.css
+# (canonical source — never vendor a copy in tish-playground/public/).
+sync-css:
+    @if [ -f "{{ justfile_directory() }}/node_modules/tish-ide-panels/src/panels.css" ]; then \
+       cp "{{ justfile_directory() }}/node_modules/tish-ide-panels/src/panels.css" "{{ justfile_directory() }}/public/playground.css" ; \
+     elif [ -f "{{ justfile_directory() }}/../tish-ide-panels/src/panels.css" ]; then \
+       cp "{{ justfile_directory() }}/../tish-ide-panels/src/panels.css" "{{ justfile_directory() }}/public/playground.css" ; \
+     else \
+       echo "Warning: tish-ide-panels/src/panels.css not found; SandboxIde styles may be stale." ; \
+     fi
+
+# Compile playground UI (Tish → JS). JSX support is built into `tish build`,
+# so no extra flag is needed. Output to public/dist/.
+# Depends on build-runtime + sync-css so web preview + SandboxIde styles are current.
+build-app: build-runtime sync-css
     mkdir -p "{{ justfile_directory() }}/public/dist"
-    cd "{{ justfile_directory() }}" && tish compile "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js
+    cd "{{ justfile_directory() }}" && tish build "{{ justfile_directory() }}/app/main.tish" -o "{{ justfile_directory() }}/public/dist/playground.js" --target js
 
 # Build VM WASM (uses tish package's tish_wasm_runtime crate).
 build-vm:

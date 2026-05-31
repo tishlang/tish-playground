@@ -36,13 +36,28 @@ fi
 mkdir -p "$PLAYGROUND_ROOT/public/dist"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$PLAYGROUND_ROOT/target}"
 
+# Sync panels.css from the tish-ide-panels package (canonical source). The
+# playground's index.html loads /playground.css; we copy panels.css into that
+# slot so SandboxIde's modal / toast / share-button styles are always current
+# and we don't keep a vendored copy in the playground tree.
+PANELS_CSS="$PLAYGROUND_ROOT/node_modules/tish-ide-panels/src/panels.css"
+if [[ ! -f "$PANELS_CSS" ]]; then
+  PANELS_CSS="$PLAYGROUND_ROOT/../tish-ide-panels/src/panels.css"
+fi
+if [[ -f "$PANELS_CSS" ]]; then
+  echo "Syncing panels.css → public/playground.css ..."
+  cp "$PANELS_CSS" "$PLAYGROUND_ROOT/public/playground.css"
+else
+  echo "Warning: tish-ide-panels/src/panels.css not found; SandboxIde styles may be stale."
+fi
+
 echo "Building Lattish runtime..."
-(cd "$PLAYGROUND_ROOT" && "$TISH_CLI" compile "$PLAYGROUND_ROOT/app/web-runtime.tish" \
+(cd "$PLAYGROUND_ROOT" && "$TISH_CLI" build "$PLAYGROUND_ROOT/app/web-runtime.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/lattish-runtime.js" \
   --target js)
 
 echo "Building playground app..."
-(cd "$PLAYGROUND_ROOT" && "$TISH_CLI" compile "$PLAYGROUND_ROOT/app/main.tish" \
+(cd "$PLAYGROUND_ROOT" && "$TISH_CLI" build "$PLAYGROUND_ROOT/app/main.tish" \
   -o "$PLAYGROUND_ROOT/public/dist/playground.js" \
   --target js)
 

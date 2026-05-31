@@ -1,0 +1,2 @@
+import { serve, readFile, writeFile, createBcWebSocket, process } from "tish-browser-server"
+console.log("imports ok:", typeof serve, typeof readFile, typeof writeFile, typeof createBcWebSocket, typeof process)

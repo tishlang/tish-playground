@@ -3,10 +3,18 @@
   "private": true,
   "scripts": {
     "build": "bash build.sh",
+    "build-runtime": "just build-runtime",
+    "sync-css": "just sync-css",
+    "build-app": "just build-app",
+    "build-vm": "just build-vm",
+    "build-compiler": "just build-compiler",
+    "dev": "just dev",
+    "serve": "just serve",
     "install-tish": "cd ../tish && just install-full",
     "verify": "bash verify.sh"
   },
   "dependencies": {
-    "lattish": "../lattish"
+    "lattish": "../lattish",
+    "tish-ide-panels": "../tish-ide-panels"
   }
 }
