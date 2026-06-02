@@ -1,2 +1,5 @@
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
+
+[build]
+# Empty build block to workaround a bug in @vercel/rust@1.3.0 (Cannot read properties of undefined (reading 'target'))
