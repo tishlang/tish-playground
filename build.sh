@@ -63,6 +63,12 @@ echo "Building playground app..."
 
 echo "Building WASM VM..."
 (cd "$TISH_ROOT/crates/tish_wasm_runtime" && cargo build --target wasm32-unknown-unknown --release --features browser)
+
+WASM_BINDGEN_VERSION="0.2.122"
+if ! command -v wasm-bindgen >/dev/null 2>&1 || ! wasm-bindgen --version | grep -q "${WASM_BINDGEN_VERSION}"; then
+  echo "Installing wasm-bindgen-cli v${WASM_BINDGEN_VERSION}..."
+  cargo install -f wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}"
+fi
 wasm-bindgen "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/tishlang_wasm_runtime.wasm" \
   --out-dir "$PLAYGROUND_ROOT/public/dist" \
   --out-name tish_vm \

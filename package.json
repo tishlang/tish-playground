@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@tishlang/lattish": "latest",
+    "@tishlang/tish": "^1.12.0",
     "@tishlang/tish-ide-panels": "latest"
   }
 }
