@@ -21,8 +21,8 @@
 //     unmodified; their local edits don't persist until they hit "⑂ Fork",
 //     which writes to localStorage and clears the URL.
 
-import { createRoot, useState, useRef, useLayoutEffect } from "lattish"
-import { SandboxIde, isEmbedRequested } from "tish-ide-panels"
+import { createRoot, useState, useRef, useLayoutEffect } from "@tishlang/lattish"
+import { SandboxIde, isEmbedRequested } from "@tishlang/tish-ide-panels"
 
 const DEFAULT_FILES = [
   {

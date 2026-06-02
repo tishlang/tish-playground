@@ -11,10 +11,12 @@
     "dev": "just dev",
     "serve": "just serve",
     "install-tish": "cd ../tish && just install-full",
-    "verify": "bash verify.sh"
+    "verify": "bash verify.sh",
+    "link-local": "npm link ../lattish ../tish-ide-panels",
+    "unlink-local": "npm install"
   },
   "dependencies": {
-    "lattish": "../lattish",
-    "tish-ide-panels": "../tish-ide-panels"
+    "@tishlang/lattish": "latest",
+    "@tishlang/tish-ide-panels": "latest"
   }
 }
