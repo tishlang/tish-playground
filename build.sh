@@ -64,7 +64,14 @@ echo "Building playground app..."
 echo "Building WASM VM..."
 (cd "$TISH_ROOT/crates/tish_wasm_runtime" && cargo build --target wasm32-unknown-unknown --release --features browser)
 
-WASM_BINDGEN_VERSION="0.2.122"
+# The wasm-bindgen CLI must exactly match the wasm-bindgen crate the WASM was
+# built against, so read the version from Tish's Cargo.lock instead of pinning it.
+WASM_BINDGEN_VERSION="$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/[^0-9.]/, ""); print; exit }' "$TISH_ROOT/Cargo.lock" 2>/dev/null || true)"
+if [[ -z "$WASM_BINDGEN_VERSION" ]]; then
+  echo "Error: could not read the wasm-bindgen version from $TISH_ROOT/Cargo.lock"
+  exit 1
+fi
+echo "wasm-bindgen version (from Tish Cargo.lock): $WASM_BINDGEN_VERSION"
 if ! command -v wasm-bindgen >/dev/null 2>&1 || ! wasm-bindgen --version | grep -q "${WASM_BINDGEN_VERSION}"; then
   echo "Installing wasm-bindgen-cli v${WASM_BINDGEN_VERSION}..."
   cargo install -f wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}"
